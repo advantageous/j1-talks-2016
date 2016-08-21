@@ -1,0 +1,88 @@
+buildscript {
+    ext.kotlin_version = '1.0.1-2'
+
+    repositories {
+        mavenCentral()
+    }
+
+}
+
+plugins {
+    id "maven"
+    id 'application'
+    id "io.advantageous.marathon" version "1.0.0"
+    id "io.advantageous.docker-test" version "0.1.6"
+    id "idea"
+}
+
+
+
+group 'com.redbullsoundselect'
+version '0.9.4'
+
+sourceCompatibility = '1.8'
+mainClassName = 'io.advantageous.dcos.Main'
+
+repositories {
+    mavenLocal()
+    mavenCentral()
+}
+
+
+dependencies {
+
+    // Config lib.
+    compile 'io.advantageous.konf:konf:1.3.8'
+
+    compile 'io.advantageous.discovery:lokate:1.1.0'
+
+    // Reakt for Java promises.
+    compile 'io.advantageous.reakt:reakt:2.8.16'
+
+    compile 'io.advantageous.reakt:reakt-guava:2.1.0.RELEASE'
+    compile 'io.advantageous.reakt:reakt-vertx:2.1.0.RELEASE'
+
+    // Unit testing and Mock.
+    testCompile 'junit:junit:4.11'
+    testCompile 'org.mockito:mockito-core:1.10.19'
+
+
+    // Cassandra.
+    compile 'com.datastax.cassandra:cassandra-driver-core:3.0.0'
+
+    // QBit for service method dispatch w/o code gen over event bus.
+    compile 'io.advantageous.qbit:qbit-admin:1.10.7'
+    compile 'io.advantageous.qbit:qbit-vertx:1.10.7'
+
+
+    //Test compile for docker
+    testCompile 'io.advantageous.gradle:docker-test-plugin:0.1.6'
+
+    // Logging.
+    compile("ch.qos.logback:logback-core:1.1.3")
+    compile("ch.qos.logback:logback-classic:1.1.3")
+    compile("org.slf4j:slf4j-api:1.7.12")
+    compile('net.logstash.logback:logstash-logback-encoder:4.6')
+
+
+}
+
+
+test {
+    useJUnit {
+        excludeCategories 'io.advantageous.test.DockerTest'
+    }
+}
+
+
+marathonEnvironments {
+
+    staging {
+        marathonApi "https://admin:FTnDodxwLA34KN@control.rbss-staging.rbmhops.net:8080"
+        mavenRepo "http://artifactory.rbmhops.net/artifactory/libs-release-local/"
+    }
+    production {
+        marathonApi "https://admin:FTnDodxwLA34KN@control.rbss-prod.rbmhops.net:8080"
+        mavenRepo "http://artifactory.rbmhops.net/artifactory/libs-release-local/"
+    }
+}
