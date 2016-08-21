@@ -61,6 +61,30 @@ Or you can handle it in one line.
 ```
 
 
+## Promise concepts
+
+This has been adapted from this [article on ES6 promises](http://www.html5rocks.com/en/tutorials/es6/promises/).
+A promise can be:
+
+* fulfilled The callback/action relating to the promise succeeded 
+* rejected  The callback/action relating to the promise failed 
+* pending   The callback/action has not been fulfilled or rejected yet 
+* completed The callback/action has been fulfilled/resolved or rejected
+
+Java is not single threaded, meaning that two bits of code can run at 
+the same time, so the design of this promise and streaming library takes
+that into account. 
+
+There are three types of promises:
+* Callback promises
+* Blocking promises (for testing and legacy integration)
+* Replay promises (allow promises to be handled on the same thread as caller)
+
+Replay promises are the most like their JS cousins. Replay promises are usually
+managed by the Reakt `Reactor` and supports environments like Vert.x and QBit.
+See the wiki for more details on Replay promises.
+
+
 ## Building and running the example
 
 To do a complete build and run all of the tests navigate to the project folder and use gradle.
@@ -312,6 +336,11 @@ Then use the IDE to run the unit test.
 
 ## Step 6 Test addTodo using REST interface
 
+#### Run the app
+```
+gradle run
+```
+
 
 #### Add a TODO
 ```
@@ -330,5 +359,118 @@ You should be able to see the Todo item that you posted.
 
 ## Step 7 Using the reactor to track service actor state
 
-TODO
+### Overview of Step 7
+This example uses a library that has implemented an efficient way to transmit metrics (APM).
+Let's say when we add a `Todo` that we want to track the number of errors and the number of successes.
+If you go back to the addTodo method (`TodoServiceImpl.addTodo`), you will notice that we do track 
+the number of times `addTodo` has been called (by calling `mgmt.increment("addTodo.called");`). 
 
+### Background of Step 7
+What you might not have know is that the call to `mgmt.increment` goes to the 
+[Metrik](https://github.com/advantageous/metrik) implementation provided by [QBit](https://github.com/advantageous/qbit) 
+(which can be queried at runtime for back pressure controls) which sends the messages to a 
+[StatsD daemon](https://github.com/etsy/statsd) which then stores them into 
+[InfluxDB Time series database](https://influxdata.com/) where you can visualize them with [Grafana](http://grafana.org/)
+which is a metric and analytic dashboards. Once the data is in InfluxDB there are 
+[APM](https://en.wikipedia.org/wiki/Application_performance_management)
+tools which can send notifications or take other actions (based on levels or anomaly detection.) 
+
+### Details of the reactor
+The library that gathers the stats efficiently is stateful and depends on active object (or rather typed Actors or 
+as I call them Service Actors). This means that the stat collection wants to happen in the same thread as the Service
+Actor. 
+
+The Reactor is a class that enables 
+
+* callbacks that execute in caller's thread (thread safe, async callbacks)
+* tasks that run in the caller's thread
+* repeating tasks that run in a caller's thread
+* one shot after time period tasks that run in the caller's thread
+
+The *reakt* `Reactor` is a lot like the `QBit Reactor` or the `Vert.x context`.
+It allows you to enable tasks that run in actors, service actors or verticles thread.
+
+The *reakt* `Reactor` creates ***replay promises***. Replay promises execute
+in the same thread as the caller. They are "replayed" in the callers thread.
+
+[QBit](http://advantageous.github.io/qbit/) implements a service actor model (similar to Akka type actors),
+ and Vert.x implements a Reactor model (like Node.js).
+
+QBit, for example, ensures that all method calls are queued and handled by the 
+service/actor thread. You can also use the *Reakt* `Reactor` to ensure that *callbacks/promises handlers*
+happen on the same thread as the caller. This allows the callbacks to be thread safe.
+In this example we are forcing the callback to be replayed in the same thread as the addMethod call (in a non-blocking fashion).
+
+The Reakt `Reactor` is a drop in replacement for QBit Reactor except that the Reakt
+Reactor uses `Reakt` and QBit is moving towards `Reakt`. 
+`Promise`s, async `Result`s and `Callback`s. QBit 2 and 
+
+You can use the *Reakt* `Reactor` is not tied to QBit and you can use it with RxJava, Vert.x, or Spring Reactor 
+and other similar minded projects to manage repeating tasks, tasks, and callbacks on the same thread as the caller (which you 
+do not always need to do).
+
+The `Reactor` is just an interface so you could replace it with an optimized version.
+
+
+### Reactor Methods of note
+
+Here is a high level list of Reactor methods.
+* `addRepeatingTask(interval, runnable)` add a task that repeats every interval
+* `runTaskAfter(afterInterval, runnable)` run a task after an interval expires
+* `deferRun(Runnable runnable)` run a task on this thread as soon as you can
+*  `static reactor(...)` create a reactor
+*  `all(...)` create a promise that does not async return until all promises async return. (you can pass a timeout)
+*  `any(...)` create a promise that does not async return until one of the promises async return. (you can pass a timeout)
+* `process` process all tasks, callbacks.
+
+
+
+A `Reactor` provides *replay promise*, which are promises whose handlers (callbacks) can be replayed on the callers thread. 
+To replay the handlers on this service actors thread (`TodoServiceImpl`), we can use the `Promise.invokeWithReactor` method
+as follows:
+
+#### Edit src/main/java/io/advantageous/j1/reakt/TodoServiceImpl.java
+```java
+    @Override
+    @POST(value = "/todo")
+    public Promise<Boolean> addTodo(final Todo todo) {
+        logger.info("Add Todo to list {}", todo);
+        return invokablePromise(promise -> {
+            /** Send KPI addTodo called every time the addTodo method gets called. */
+            mgmt.increment("addTodo.called");
+            todoRep.addTodo(todo)
+                    .then(result -> {
+                        logger.info("Added todo to repo");
+                        promise.resolve(result);
+                        mgmt.increment("addTodo.called.success"); //TRACK SUCCESS 
+                    })
+                    .catchError(error -> {
+                        logger.error("Unable to add todo to repo", error);
+                        promise.reject("Unable to add todo to repo");
+                        mgmt.increment("addTodo.called.failure"); //TRACK FAILURE
+                    })
+                    .invokeWithReactor(mgmt.reactor()); //USE THE Reactor
+        });
+    }
+
+```
+
+Notice that mgmt.increment is not a thread safe calls. It keeps a local cache of counts, timings and such.
+We call it from the same thread as the service actor by using the reactor (`.invokeWithReactor(mgmt.reactor())`).
+
+### Run it
+```
+gradle run
+```
+
+### Hit it with rest a few times
+```
+ $ curl -X POST http://localhost:8081/v1/todo-service/todo \
+ -d '{"name":"todo", "description":"hi", "id":"abc", "createTime":1234}' -H "Content-type: application/json" | jq .
+
+```
+
+
+Now go to [grafana](http://localhost:3003/dashboard/db/main?panelId=1&fullscreen&edit&from=now-5m&to=now) and look
+ at the metrics. (Note this is a local link so we are assuming you are running the examples).
+ 

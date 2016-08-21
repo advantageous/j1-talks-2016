@@ -82,8 +82,16 @@ test {
 
 
 testDockerContainers {
-    elk {
-        containerName "elk-df"
+    a_grafana {
+        containerName "grafana"
+        image "advantageous/grafana:v1"
+        portMapping(container: 9000, host: 3003)
+        portMapping(container: 8086, host: 8086)
+        portMapping(container: 8083, host: 3004)
+        portMapping(container: "8125/udp", host: 8125)
+    }
+    b_elk {
+        containerName "elk"
         image "advantageous/elk:0.1"
         portMapping(container: 9200, host: 9200)
         portMapping(container: 5044, host: 5044)
@@ -92,7 +100,7 @@ testDockerContainers {
         portMapping(container: "5001/udp", host: 5001)
         runArgs " /usr/local/bin/start.sh "
     }
-    cassandra {
+    c_cassandra {
         publishAll true
         containerName "cassandra"
         portMapping container: 9042, host: 39042

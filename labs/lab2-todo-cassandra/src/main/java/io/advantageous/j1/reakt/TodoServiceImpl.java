@@ -93,6 +93,27 @@ public class TodoServiceImpl implements TodoService {
     }
 
 
+//    @Override
+//    @POST(value = "/todo")
+//    public Promise<Boolean> addTodo(final Todo todo) {
+//        logger.info("Add Todo to list {}", todo);
+//        return invokablePromise(promise -> {
+//            /** Send KPI addTodo called every time the addTodo method gets called. */
+//            mgmt.increment("addTodo.called");
+//            todoRep.addTodo(todo)
+//                    .then(result -> {
+//                        logger.info("Added todo to repo");
+//                        promise.resolve(result);
+//                    })
+//                    .catchError(error -> {
+//                        logger.error("Unable to add todo to repo", error);
+//                        promise.reject("Unable to add todo to repo");
+//                    })
+//                    .invoke();
+//        });
+//    }
+
+
     @Override
     @POST(value = "/todo")
     public Promise<Boolean> addTodo(final Todo todo) {
@@ -104,12 +125,14 @@ public class TodoServiceImpl implements TodoService {
                     .then(result -> {
                         logger.info("Added todo to repo");
                         promise.resolve(result);
+                        mgmt.increment("addTodo.called.success"); //TRACK SUCCESS
                     })
                     .catchError(error -> {
                         logger.error("Unable to add todo to repo", error);
                         promise.reject("Unable to add todo to repo");
+                        mgmt.increment("addTodo.called.failure"); //TRACK FAILURE
                     })
-                    .invoke();
+                    .invokeWithReactor(mgmt.reactor()); //use the reactor
         });
     }
 
