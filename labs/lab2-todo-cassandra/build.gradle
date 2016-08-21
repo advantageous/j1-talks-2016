@@ -64,8 +64,6 @@ dependencies {
     compile("org.slf4j:slf4j-api:1.7.12")
     compile('net.logstash.logback:logstash-logback-encoder:4.6')
 
-    //Service discovery
-    compile 'io.advantageous.discovery:lokate-mesos:1.1.5'
 
 
     // Cassandra.

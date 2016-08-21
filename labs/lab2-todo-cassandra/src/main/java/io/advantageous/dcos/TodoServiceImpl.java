@@ -1,10 +1,8 @@
 package io.advantageous.dcos;
 
 
-import io.advantageous.discovery.DiscoveryService;
 import io.advantageous.qbit.admin.ServiceManagementBundle;
 import io.advantageous.qbit.annotation.RequestMapping;
-import io.advantageous.qbit.annotation.RequestMethod;
 import io.advantageous.qbit.annotation.RequestParam;
 import io.advantageous.qbit.annotation.http.DELETE;
 import io.advantageous.qbit.annotation.http.GET;
@@ -13,13 +11,8 @@ import io.advantageous.reakt.promise.Promise;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.net.URI;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.TreeMap;
-import java.util.function.Consumer;
 
 import static io.advantageous.reakt.promise.Promises.invokablePromise;
 
@@ -78,7 +71,6 @@ public class TodoServiceImpl implements TodoService {
 
 
     private final ServiceManagementBundle mgmt;
-    private final DiscoveryService discoveryService;
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
     private final TodoRepo todoRep;
 
@@ -95,9 +87,6 @@ public class TodoServiceImpl implements TodoService {
                 .catchError(error -> logger.error("Error connecting to repo", error))
                 .then(flag -> logger.error("Connecting to repo {}", flag))
                 .invoke());
-
-        logger.info("Creating discovery service");
-        discoveryService = DiscoveryService.create(URI.create("marathon://marathon.mesos:8080/"));
 
 
         logger.info("Todo service created");
@@ -138,13 +127,6 @@ public class TodoServiceImpl implements TodoService {
             mgmt.increment("listTodos.called");
             todoRep.loadTodos().invokeWithPromise(promise);
         });
-    }
-
-
-    @POST(value = "/service")
-    public final Promise<List<URI>> listServices(URI uri) {
-        logger.debug("List services");
-        return discoveryService.lookupService(uri);
     }
 
 }
