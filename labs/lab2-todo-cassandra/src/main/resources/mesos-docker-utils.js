@@ -17,14 +17,9 @@ function getDockerHostAndPort() {
 function getDockerHost() {
   try {
     if (isMacOS() && !env('DOCKER_HOST')) {
-      var vb = shell('docker info').split('\n').filter(function (line) {
-        return line.contains('provider=virtualbox');
-      });
-      if (vb.length) {
         return '192.168.99.100';
-      } else {
-        return '127.0.0.1';
-      }
+    } else if (isMacOS()){
+      return dockerHostOrDefault('192.168.99.100');
     } else {
       return dockerHostOrDefault('127.0.0.1');
     }
