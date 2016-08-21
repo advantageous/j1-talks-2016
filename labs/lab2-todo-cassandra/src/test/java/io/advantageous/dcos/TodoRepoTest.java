@@ -19,7 +19,7 @@ public class TodoRepoTest {
     @Before
     public void before() throws Exception {
 
-        todoRepo = new TodoRepo(1, ConfigUtils.getConfig("todo").getUriList("cassandra"));
+        todoRepo = new TodoRepo(1, ConfigUtils.getConfig("todo").getConfig("cassandra").getUriList("uris"));
         todoRepo.connect().invokeAsBlockingPromise().get();
         Thread.sleep(1000);
 
