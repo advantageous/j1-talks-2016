@@ -1,4 +1,4 @@
-package io.advantageous.dcos;
+package io.advantageous.j1.reakt;
 
 
 import io.advantageous.qbit.admin.ServiceManagementBundle;
@@ -96,11 +96,20 @@ public class TodoServiceImpl implements TodoService {
     @Override
     @POST(value = "/todo")
     public Promise<Boolean> addTodo(final Todo todo) {
-        logger.debug("Add Todo to list {}", todo);
+        logger.info("Add Todo to list {}", todo);
         return invokablePromise(promise -> {
             /** Send KPI addTodo called every time the addTodo method gets called. */
             mgmt.increment("addTodo.called");
-            todoRep.addTodo(todo).invokeWithPromise(promise);
+            todoRep.addTodo(todo)
+                    .then(result -> {
+                        logger.info("Added todo to repo");
+                        promise.resolve(result);
+                    })
+                    .catchError(error -> {
+                        logger.error("Unable to add todo to repo", error);
+                        promise.reject("Unable to add todo to repo");
+                    })
+                    .invoke();
         });
     }
 
@@ -119,13 +128,23 @@ public class TodoServiceImpl implements TodoService {
 
 
     @Override
-    @GET(value = "/todo")
+    @GET(value = "/todo/")
     public final Promise<List<Todo>> listTodos() {
         logger.debug("List todos");
         return invokablePromise(promise -> {
             /** Send KPI addTodo.listTodos every time the listTodos method gets called. */
             mgmt.increment("listTodos.called");
-            todoRep.loadTodos().invokeWithPromise(promise);
+
+            todoRep.loadTodos()
+                    .then(todos -> {
+                        logger.info("list todos");
+                        promise.resolve(todos);
+                    })
+                    .catchError(error -> {
+                        logger.error("Unable to add todo to repo", error);
+                        promise.reject("Unable to add todo to repo");
+                    })
+                    .invoke();
         });
     }
 

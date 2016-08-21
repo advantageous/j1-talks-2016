@@ -1,4 +1,4 @@
-package io.advantageous.dcos;
+package io.advantageous.j1.reakt;
 
 import io.advantageous.config.Config;
 import io.advantageous.config.ConfigLoader;

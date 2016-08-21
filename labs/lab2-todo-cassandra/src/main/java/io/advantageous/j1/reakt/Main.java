@@ -1,11 +1,9 @@
-package io.advantageous.dcos;
+package io.advantageous.j1.reakt;
 
 
 import io.advantageous.config.Config;
 import io.advantageous.qbit.admin.ManagedServiceBuilder;
 import io.advantageous.qbit.admin.ServiceManagementBundle;
-
-import java.net.URI;
 
 import static io.advantageous.qbit.admin.ManagedServiceBuilder.managedServiceBuilder;
 import static io.advantageous.qbit.admin.ServiceManagementBundleBuilder.serviceManagementBundleBuilder;

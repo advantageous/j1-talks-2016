@@ -1,4 +1,4 @@
-package io.advantageous.dcos;
+package io.advantageous.j1.reakt;
 
 import io.advantageous.reakt.promise.Promise;
 import io.advantageous.test.DockerTest;
@@ -6,7 +6,6 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
-import java.net.URI;
 import java.util.List;
 
 import static org.junit.Assert.*;

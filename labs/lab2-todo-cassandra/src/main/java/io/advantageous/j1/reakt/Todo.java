@@ -1,26 +1,21 @@
-package io.advantageous.dcos;
+package io.advantageous.j1.reakt;
 
 public class Todo {
 
-    private  String id;
-
+    private final String id;
     private final String name;
     private final String description;
     private final long createTime;
 
-    public Todo(String name, String description, long createTime) {
+    public Todo(String name, String description, long createTime, String id) {
         this.name = name;
         this.description = description;
         this.createTime = createTime;
-
-        this.id = name + "::" + createTime;
+        this.id = id;
     }
 
 
     public String getId() {
-        if (id == null) {
-            this.id = name + "::" + createTime;
-        }
         return id;
     }
 

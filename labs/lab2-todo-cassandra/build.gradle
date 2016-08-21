@@ -10,7 +10,6 @@ buildscript {
 plugins {
     id "maven"
     id 'application'
-    id "io.advantageous.marathon" version "1.0.0"
     id "io.advantageous.docker-test" version "0.1.6"
     id "idea"
 }
@@ -18,10 +17,10 @@ plugins {
 
 
 group 'io.advantageous'
-version '0.9.5'
+version '0.0.1'
 
 sourceCompatibility = '1.8'
-mainClassName = 'io.advantageous.dcos.Main'
+mainClassName = 'io.advantageous.j1.reakt.Main'
 
 repositories {
     mavenLocal()
@@ -83,15 +82,6 @@ test {
 
 
 testDockerContainers {
-
-    cassandra {
-        publishAll true
-        containerName "cassandra"
-        portMapping container: 9042, host: 39042
-        image "cassandra:2.2.5"
-        waitAfterRun 30
-    }
-
     elk {
         containerName "elk-df"
         image "advantageous/elk:0.1"
@@ -102,16 +92,11 @@ testDockerContainers {
         portMapping(container: "5001/udp", host: 5001)
         runArgs " /usr/local/bin/start.sh "
     }
-}
-
-marathonEnvironments {
-
-    staging {
-        marathonApi "https://admin:FTnDodxwLA34KN@control.rbss-staging.rbmhops.net:8080"
-        mavenRepo "http://artifactory.rbmhops.net/artifactory/libs-release-local/"
-    }
-    production {
-        marathonApi "https://admin:FTnDodxwLA34KN@control.rbss-prod.rbmhops.net:8080"
-        mavenRepo "http://artifactory.rbmhops.net/artifactory/libs-release-local/"
+    cassandra {
+        publishAll true
+        containerName "cassandra"
+        portMapping container: 9042, host: 39042
+        image "cassandra:2.2.5"
+        waitAfterRun 30
     }
 }

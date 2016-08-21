@@ -1,4 +1,4 @@
-package io.advantageous.dcos;
+package io.advantageous.j1.reakt;
 
 import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Row;
@@ -74,7 +74,8 @@ public class TodoRepo {
         final String name = row.getString("name");
         final String description = row.getString("description");
         final long createTime = row.getTimestamp("createTime").getTime();
-        return new Todo(name, description, createTime);
+        final String id = row.getString("id");
+        return new Todo(name, description, createTime, id);
     }
 
     private void doAddTodo(final Promise<Boolean> promise, final Todo todo) {
@@ -87,7 +88,7 @@ public class TodoRepo {
 
         registerCallback(sessionRef.get().executeAsync(insert),
                 promise(ResultSet.class)
-                        .catchError(error -> promise.reject(error))
+                        .catchError(promise::reject)
                         .then(resultSet -> promise.resolve(resultSet.wasApplied()))
         );
     }
@@ -178,24 +179,27 @@ public class TodoRepo {
 
     }
 
-    public boolean isConnected() {
+    private boolean isConnected() {
         return sessionRef.get() != null && !sessionRef.get().isClosed();
     }
 
-    public void ifConnected(final String operation,
+    private void ifConnected(final String operation,
                             final Promise<?> promise, final Runnable runnable) {
+        // If we are not connected, try to connect, but fail this request.
         if (!isConnected()) {
             forceConnect();
+            //Promise rejected because we were not connected.
             promise.reject("Not connected to cassandra for operation " + operation);
         } else {
+            // Try running the operation
             try {
                 runnable.run();
             } catch (Exception ex) {
+                //Operation failed, exit
                 promise.reject("Error running " + operation, ex);
             }
         }
     }
-
 
     private void forceConnect() {
         this.connectInternal()
