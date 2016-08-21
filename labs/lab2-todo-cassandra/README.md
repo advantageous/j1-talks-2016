@@ -1,7 +1,8 @@
-## Overview
+# Hands on Lab - Reactive Java - Promises and Streams with Reakt in Practice
 
+## Overview of Reakt for the lab
 
-Reakt is reactive interfaces for Java which includes: 
+[Reakt](http://advantageous.github.io/reakt/) is reactive interfaces for Java which includes: 
  * [Promises](https://github.com/advantageous/reakt/wiki/Promise),
  * [Streams](https://github.com/advantageous/reakt/wiki/Stream), 
  * [Callbacks](https://github.com/advantageous/reakt/wiki/Callback), 
@@ -11,11 +12,13 @@ Reakt is reactive interfaces for Java which includes:
 The emphasis is on defining interfaces that enable lambda expressions, 
 and fluent APIs for asynchronous programming for Java.
 
-Note: This mostly just provides the interfaces not the implementations. There are some starter implementations but the 
-idea is that anyone can implement this. It is all about interfaces. There are be adapters for Vertx, Guava, Cassandra, etc. 
+Note: This mostly just provides the interfaces not the implementations. There are some starter implementations for Reakt but the idea is that anyone can implement this. It is all about interfaces. There are be adapters for 
+[Vertx](https://github.com/advantageous/reakt-vertx), 
+[Guava, Cassandra,](https://github.com/advantageous/reakt-guava) etc. 
 [Elekt](http://advantageous.github.io/elekt/) uses Reakt for its reactive leadership election.
 [Lokate](http://advantageous.github.io/elekt/) uses Reakt for client side service discovery 
-for DNS-A, DNS-SRV, Consul and Mesos/Marathon.
+for DNS-A, DNS-SRV, Consul and Mesos/Marathon. [QBit uses Reakt] for its reactor implementations and supports
+Reakt `Promise`s and `Callback`s as first class citizens.
 
 You can use Reakt from gradle or maven.
 
@@ -38,7 +41,6 @@ compile 'io.advantageous.reakt:reakt:2.6.0.RELEASE'
 
 Reakt provides a fluent API for handling async calls.
 
-
 #### Fluent Promise API
 ```java
   Promise<Employee> promise = promise()
@@ -48,7 +50,7 @@ Reakt provides a fluent API for handling async calls.
   employeeService.lookupEmployee(33, promise);
 ```
 
-Or you can handle it in one line. 
+Or you can handle it in one line by using an invokeable promise. 
 
 #### Fluent Promise API example using an invokeable promise
 ```java
@@ -66,13 +68,13 @@ Or you can handle it in one line.
 This has been adapted from this [article on ES6 promises](http://www.html5rocks.com/en/tutorials/es6/promises/).
 A promise can be:
 
-* fulfilled The callback/action relating to the promise succeeded 
+* resolved The callback/action relating to the promise succeeded 
 * rejected  The callback/action relating to the promise failed 
-* pending   The callback/action has not been fulfilled or rejected yet 
-* completed The callback/action has been fulfilled/resolved or rejected
+* pending   The callback/action has not been resolved or rejected yet 
+* completed The callback/action has been resolved or rejected
 
 Java is not single threaded, meaning that two bits of code can run at 
-the same time, so the design of this promise and streaming library takes
+the same time, so the design of *this promise and streaming library* takes
 that into account. 
 
 There are three types of promises:
@@ -80,40 +82,90 @@ There are three types of promises:
 * Blocking promises (for testing and legacy integration)
 * Replay promises (allow promises to be handled on the same thread as caller)
 
-Replay promises are the most like their JS cousins. Replay promises are usually
-managed by the Reakt `Reactor` and supports environments like Vert.x and QBit.
-See the wiki for more details on Replay promises.
+This lab will cover all three as well as Promise coordination.
+
+*Replay promises* are the most like their JS cousins but implemented with a MT world in mind. 
+*Replay promises* are usually managed by the Reakt `Reactor` and supports environments like *Vert.x* and *QBit*.
+We will cover some examples of Replay promises.
+
+
+Let's transition into some actual code examples and lab work.
 
 
 ## Building and running the example
 
 To do a complete build and run all of the tests navigate to the project folder and use gradle.
 
-#### build and run
-```
+
+#### build and run (don't run this yet)
+```sh
 $ pwd
 ~/.../j1-talks-2016/labs/lab2-todo-cassandra
 
 $ ./gradlew clean dockerTest build
 ```
 
+
 This will run the docker containers and then run the tests.
 
-## To run in the IDE run you first need to run downstream docker dependencies
+This example works with *Cassandra*, *InfluxDB*, *Grafana*, and *StatsD*.
 
+
+The `dockerTest` task if from a gradle plugin that starts up docker isntances for testing. You can annotate your unit tests so that they depend on docker containers like InfluxDB, StatsD, Cassandra etc. You can read more about this [gradle docker plugin here](https://github.com/advantageous/docker-test-plugin).
+
+The docker containers are specified in the build file.
+
+#### build.gradle
+```java
+testDockerContainers {
+    a_grafana {
+        containerName "grafana"
+        image "advantageous/grafana:v1"
+        portMapping(container: 9000, host: 3003)
+        portMapping(container: 8086, host: 8086)
+        portMapping(container: 8083, host: 3004)
+        portMapping(container: "8125/udp", host: 8125)
+    }
+    b_elk {
+        containerName "elk"
+        image "advantageous/elk:0.1"
+        portMapping(container: 9200, host: 9200)
+        portMapping(container: 5044, host: 5044)
+        portMapping(container: 5000, host: 5000)
+        portMapping(container: 5601, host: 5601)
+        portMapping(container: "5001/udp", host: 5001)
+        runArgs " /usr/local/bin/start.sh "
+    }
+    c_cassandra {
+        publishAll true
+        containerName "cassandra"
+        portMapping container: 9042, host: 39042
+        image "cassandra:2.2.5"
+        waitAfterRun 30
+    }
+}
 ```
+
+### To run in the IDE run you first need to run downstream docker dependencies
+
+```sh
 $ ./gradlew startTestDocker
 # then run things in IDE
 ```
 
-This example works with Cassandra, InfluxDB, Grafana, and StatsD.
+### To stop docker container dependencies use this
+```sh
+$ ./gradlew startTestDocker
+# then run things in IDE
+```
 
+Docker is setup on the machine so you can stop containers with `docker stop`, and remove them with `docker rm`. You may also need to get a list of containers with `docker ps` or `docker ps -a`. All of the docker containers are named (elk, grafana, and cassandra).
 
-Let's get started.
+Let's get started with writing code.
 
 ## Step 1 implement the add operation in TodoRepo
 
-Add the add Todo operation in the TodoRepo.
+Add the `addTodo` operation in the `TodoRepo` class.
 
 #### ACTION Edit the file ./src/main/java/io/advantageous/j1/reakt/TodoRepo and finish addTodo method
 ```java
@@ -144,6 +196,10 @@ public class TodoRepo {
     }
 ```
 
+The method `Promise.invokablePromise` returns an *invokeable promise*, which is a handle on an async operation
+call. The client code can register error handlers and async return handlers (callbacks) for the async operation
+and then `invoke` the async operation.  
+
 When you return a promise, client code can call your method as follows:
 #### INFO Calling this REPO from a service
 ```java
@@ -162,7 +218,9 @@ When you return a promise, client code can call your method as follows:
 ```
 
 
-Notice you have different handlers for handling the successful outcome versus the unsuccessful outcome.
+Notice you have different handlers for handling the successful outcome (`then`) versus the unsuccessful outcome (`catchError`).
+
+### Background on promise handlers
 
 Here are the different types of promises handlers.
 
@@ -182,7 +240,6 @@ The methods `then` and `thenSafe` async return the result that is not wrapped in
 `Expected` object, i.e., the raw result. Use `then` and `thenSafe` when you 
 know the async return will not be null. Use `thenExpect` and `thenSafeExpect`
 if the value could be null or if you want to `map` or `filter` the result. 
-
 
 Use `thenMap` when a promise returns for example a `List<Employee>`, but you only 
 want the first `Employee`. See [`Promise.thenMap`](https://github.com/advantageous/reakt/wiki/Promise.thenMap) for more details.
@@ -231,6 +288,8 @@ Next we need to finish up the `ifConnected` operation
 
 ```
 
+Notice that we catch the `Exception` and then call `promise.reject` to send the exception back to the handler.
+We also implement a fail fast operation if we are not yet connected of lost our connection (outage?). The fail fast operation attempts a reconnect.
 
 ## Step 3 Finish the doAddTodo method
 
@@ -252,6 +311,7 @@ Next we need to finish up the `ifConnected` operation
     }
 ```
 
+The `registerCallback` method is from the [Guava integration with Reakt](http://advantageous.github.io/reakt-guava/). Cassnadra uses [Guava](https://github.com/google/guava) as do many other libs for their async lib operations. 
 
 ## Step 4 Finish the addTodo method in the service impl
 
@@ -314,8 +374,9 @@ public class TodoRepoTest {
 
 
 Notice the above uses a `BlockingPromise`. 
-A `BlockingPromise` is very much like a Java Future. It is blocking. 
-This is useful for unit testing and for legacy integration.
+A `BlockingPromise` is very much like a Java Future. It is blocking. This is useful for unit testing and for legacy integration.
+
+The method `invokeAsBlockingPromise` has a version that takes a timeout duration so your tests do not hang forever if there is an error. The `invokeAsBlockingPromise` greatly simplifies testing of async software which can be a bit difficult. 
 
 
 To run the test, the docker containers have to be running.
@@ -327,7 +388,6 @@ You can control the docker containers from gradle.
 * startTestDocker - Start docker containers used in tests
 
 If you want to run the examples in the IDE, just run this once
-
 ```
 $ docker startTestDocker
 ```
@@ -348,14 +408,13 @@ gradle run
  -d '{"name":"todo", "description":"hi", "id":"abc", "createTime":1234}' -H "Content-type: application/json" | jq .
 ```
 
+The above use curl to POST JSON Todo item to our example.
 
 #### Read Todos
 ```
 $ curl http://localhost:8081/v1/todo-service/todo/ | jq .
 ```
-
 You should be able to see the Todo item that you posted. 
-
 
 ## Step 7 Using the reactor to track service actor state
 
@@ -469,7 +528,6 @@ gradle run
  -d '{"name":"todo", "description":"hi", "id":"abc", "createTime":1234}' -H "Content-type: application/json" | jq .
 
 ```
-
 
 Now go to [grafana](http://localhost:3003/dashboard/db/main?panelId=1&fullscreen&edit&from=now-5m&to=now) and look
  at the metrics. (Note this is a local link so we are assuming you are running the examples).
