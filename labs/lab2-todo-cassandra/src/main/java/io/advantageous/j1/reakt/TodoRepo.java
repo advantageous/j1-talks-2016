@@ -207,4 +207,14 @@ public class TodoRepo {
                 .then(sessionRef::set)
                 .invoke();
     }
+
+    public void close() {
+        if (isConnected()) {
+            try {
+                sessionRef.get().close();
+            } catch (Exception ex) {
+                logger.error("Error closing session");
+            }
+        }
+    }
 }

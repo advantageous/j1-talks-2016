@@ -2,6 +2,7 @@ package io.advantageous.j1.reakt;
 
 import io.advantageous.reakt.promise.Promise;
 import io.advantageous.test.DockerTest;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
@@ -13,7 +14,7 @@ import static org.junit.Assert.*;
 @Category(DockerTest.class)
 public class TodoRepoTest {
 
-    TodoRepo todoRepo;
+    private TodoRepo todoRepo;
 
     @Before
     public void before() throws Exception {
@@ -24,9 +25,14 @@ public class TodoRepoTest {
 
     }
 
+    @After
+    public void after() throws Exception {
+        todoRepo.close();
+    }
+
     @Test
     public void addTodo() throws Exception {
-        final Promise<Boolean> promise = todoRepo.addTodo(new Todo("Rick", "Rick", System.currentTimeMillis()))
+        final Promise<Boolean> promise = todoRepo.addTodo(new Todo("Rick", "Rick", System.currentTimeMillis(),"abc"))
                 .invokeAsBlockingPromise();
         assertTrue(promise.success());
         assertTrue(promise.get());
@@ -36,7 +42,7 @@ public class TodoRepoTest {
     public void loadTodos() throws Exception {
 
         for (int i = 1; i < 10; i++) {
-            todoRepo.addTodo(new Todo("Geoff"+i, "Geoff"+i, System.currentTimeMillis()))
+            todoRepo.addTodo(new Todo("Geoff"+i, "Geoff"+i, System.currentTimeMillis(), "xyz"))
                     .invokeAsBlockingPromise().get();
         }
 

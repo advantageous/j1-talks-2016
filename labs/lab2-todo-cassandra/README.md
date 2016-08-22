@@ -58,7 +58,8 @@ Or you can handle it in one line by using an invokeable promise.
 
   employeeService.lookupEmployee(33, 
         promise().then(e -> saveEmployee(e))
-                 .catchError(error -> logger.error("Unable to lookup ", error))
+                 .catchError(error -> 
+                   logger.error("Unable to lookup ", error))
         );
 ```
 
@@ -146,20 +147,30 @@ testDockerContainers {
 }
 ```
 
-### To run in the IDE run you first need to run downstream docker dependencies
+#### To run in the IDE run you first need to run downstream docker dependencies
 
 ```sh
 $ ./gradlew startTestDocker
 # then run things in IDE
 ```
 
-### To stop docker container dependencies use this
+#### To stop docker container dependencies use this
 ```sh
 $ ./gradlew startTestDocker
 # then run things in IDE
 ```
 
-Docker is setup on the machine so you can stop containers with `docker stop`, and remove them with `docker rm`. You may also need to get a list of containers with `docker ps` or `docker ps -a`. All of the docker containers are named (elk, grafana, and cassandra).
+Docker is setup on the machine so you can stop containers with `docker stop`, and remove them with `docker rm`. 
+You may also need to get a list of containers with `docker ps` or `docker ps -a`. All of the docker containers are 
+named (elk, grafana, and cassandra). (The command `docker stop elk` would stop the elk stack.)
+
+When in doubt, reset the docker containers as follows:
+
+#### Reset the docker containers
+```sh
+$ docker stop grafana cassandra elk
+$ docker rm grafana cassandra elk
+```
 
 Let's get started with writing code.
 
@@ -396,13 +407,14 @@ Then use the IDE to run the unit test.
 
 ## Step 6 Test addTodo using REST interface
 
-#### Run the app
+#### ACTION Run the app
 ```
-gradle run
+gradle clean build run
 ```
 
+The above should run the application and bind the service port to 8081 and the admin port to 9090.
 
-#### Add a TODO
+#### ACTION Add a TODO
 ```
  $ curl -X POST http://localhost:8081/v1/todo-service/todo \
  -d '{"name":"todo", "description":"hi", "id":"abc", "createTime":1234}' -H "Content-type: application/json" | jq .
@@ -410,7 +422,7 @@ gradle run
 
 The above use curl to POST JSON Todo item to our example.
 
-#### Read Todos
+#### ACTION Read Todos
 ```
 $ curl http://localhost:8081/v1/todo-service/todo/ | jq .
 ```
@@ -488,7 +500,7 @@ A `Reactor` provides *replay promise*, which are promises whose handlers (callba
 To replay the handlers on this service actors thread (`TodoServiceImpl`), we can use the `Promise.invokeWithReactor` method
 as follows:
 
-#### Edit src/main/java/io/advantageous/j1/reakt/TodoServiceImpl.java
+#### ACTION Edit src/main/java/io/advantageous/j1/reakt/TodoServiceImpl.java
 ```java
     @Override
     @POST(value = "/todo")
@@ -517,12 +529,12 @@ as follows:
 Notice that mgmt.increment is not a thread safe calls. It keeps a local cache of counts, timings and such.
 We call it from the same thread as the service actor by using the reactor (`.invokeWithReactor(mgmt.reactor())`).
 
-### Run it
+### ACTION Run it
 ```
 gradle run
 ```
 
-### Hit it with rest a few times
+### ACTION Hit it with rest a few times
 ```
  $ curl -X POST http://localhost:8081/v1/todo-service/todo \
  -d '{"name":"todo", "description":"hi", "id":"abc", "createTime":1234}' -H "Content-type: application/json" | jq .
@@ -531,4 +543,5 @@ gradle run
 
 Now go to [grafana](http://localhost:3003/dashboard/db/main?panelId=1&fullscreen&edit&from=now-5m&to=now) and look
  at the metrics. (Note this is a local link so we are assuming you are running the examples).
+ 
  

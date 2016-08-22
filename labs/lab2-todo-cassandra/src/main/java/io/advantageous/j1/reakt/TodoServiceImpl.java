@@ -2,6 +2,8 @@ package io.advantageous.j1.reakt;
 
 
 import io.advantageous.qbit.admin.ServiceManagementBundle;
+import io.advantageous.qbit.annotation.QueueCallback;
+import io.advantageous.qbit.annotation.QueueCallbackType;
 import io.advantageous.qbit.annotation.RequestMapping;
 import io.advantageous.qbit.annotation.RequestParam;
 import io.advantageous.qbit.annotation.http.DELETE;
@@ -85,7 +87,7 @@ public class TodoServiceImpl implements TodoService {
 
         mgmt.reactor().deferRun(() -> todoRepo.connect()
                 .catchError(error -> logger.error("Error connecting to repo", error))
-                .then(flag -> logger.error("Connecting to repo {}", flag))
+                .then(flag -> logger.info("Connecting to repo {}", flag))
                 .invoke());
 
 
@@ -169,6 +171,11 @@ public class TodoServiceImpl implements TodoService {
                     })
                     .invoke();
         });
+    }
+
+    @QueueCallback(QueueCallbackType.SHUTDOWN)
+    private void shutdown() {
+        todoRep.close();
     }
 
 }
