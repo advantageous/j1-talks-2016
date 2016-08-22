@@ -120,7 +120,7 @@ The docker containers are specified in the build file.
 ```java
 testDockerContainers {
     a_grafana {
-        containerName "grafana"
+        containerName "grafana_j1"
         image "advantageous/grafana:v1"
         portMapping(container: 9000, host: 3003)
         portMapping(container: 8086, host: 8086)
@@ -128,7 +128,7 @@ testDockerContainers {
         portMapping(container: "8125/udp", host: 8125)
     }
     b_elk {
-        containerName "elk"
+        containerName "elk_j1"
         image "advantageous/elk:0.1"
         portMapping(container: 9200, host: 9200)
         portMapping(container: 5044, host: 5044)
@@ -139,7 +139,7 @@ testDockerContainers {
     }
     c_cassandra {
         publishAll true
-        containerName "cassandra"
+        containerName "cassandra_j1"
         portMapping container: 9042, host: 39042
         image "cassandra:2.2.5"
         waitAfterRun 30
@@ -168,8 +168,8 @@ When in doubt, reset the docker containers as follows:
 
 #### Reset the docker containers
 ```sh
-$ docker stop grafana cassandra elk
-$ docker rm grafana cassandra elk
+$ docker stop grafana_j1 cassandra_j1 elk_j1
+$ docker rm grafana_j1 cassandra_j1 elk_j1
 ```
 
 Let's get started with writing code.
