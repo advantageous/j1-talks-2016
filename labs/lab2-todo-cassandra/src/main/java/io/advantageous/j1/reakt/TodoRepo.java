@@ -41,9 +41,12 @@ public class TodoRepo {
     }
 
     public Promise<Boolean> addTodo(final Todo todo) {
-        return invokablePromise(promise ->
-                ifConnected("Adding todo", promise, () -> doAddTodo(promise, todo))
-        );
+
+        // TODO Step 1 implement the add operation in TodoRepo
+        // return invokablePromise promise ->
+        //        ifConnected("Adding todo", promise, () -> doAddTodo(promise, todo))
+
+        return null;
     }
 
     public Promise<List<Todo>> loadTodos() {
@@ -86,11 +89,7 @@ public class TodoRepo {
                 .value("name", todo.getName())
                 .value("description", todo.getDescription());
 
-        registerCallback(sessionRef.get().executeAsync(insert),
-                promise(ResultSet.class)
-                        .catchError(promise::reject)
-                        .then(resultSet -> promise.resolve(resultSet.wasApplied()))
-        );
+        // TODO Step 3 Finish the doAddTodo method
     }
 
 
@@ -185,18 +184,20 @@ public class TodoRepo {
 
     private void ifConnected(final String operation,
                             final Promise<?> promise, final Runnable runnable) {
+
+        //TODO Step 2 finish the ifConnected method
         // If we are not connected, try to connect, but fail this request.
         if (!isConnected()) {
-            forceConnect();
-            //Promise rejected because we were not connected.
-            promise.reject("Not connected to cassandra for operation " + operation);
+            // forceConnect
+            // Promise rejected because we were not connected.
+            // promise reject "Not connected to cassandra for operation " + operation
         } else {
             // Try running the operation
             try {
-                runnable.run();
+                // runnable run
             } catch (Exception ex) {
                 //Operation failed, exit
-                promise.reject("Error running " + operation, ex);
+                // promise reject "Error running " + operation
             }
         }
     }

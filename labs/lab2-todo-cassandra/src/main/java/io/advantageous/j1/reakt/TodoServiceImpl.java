@@ -123,18 +123,7 @@ public class TodoServiceImpl implements TodoService {
         return invokablePromise(promise -> {
             /** Send KPI addTodo called every time the addTodo method gets called. */
             mgmt.increment("addTodo.called");
-            todoRep.addTodo(todo)
-                    .then(result -> {
-                        logger.info("Added todo to repo");
-                        promise.resolve(result);
-                        mgmt.increment("addTodo.called.success"); //TRACK SUCCESS
-                    })
-                    .catchError(error -> {
-                        logger.error("Unable to add todo to repo", error);
-                        promise.reject("Unable to add todo to repo");
-                        mgmt.increment("addTodo.called.failure"); //TRACK FAILURE
-                    })
-                    .invokeWithReactor(mgmt.reactor()); //use the reactor
+            //TODO Step 4 Finish the addTodo method in the service impl
         });
     }
 
