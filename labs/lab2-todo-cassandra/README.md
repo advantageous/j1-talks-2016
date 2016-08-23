@@ -92,6 +92,12 @@ We will cover some examples of Replay promises.
 
 Let's transition into some actual code examples and lab work.
 
+## VirtualBox Credentials
+* Box name: JavaOneReakt
+* Computer name: java1-reakt
+* Username: *dev*
+* Password: *j1reakt!*
+
 
 ## Building and running the example
 
