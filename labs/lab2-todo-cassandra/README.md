@@ -409,7 +409,7 @@ Then use the IDE to run the unit test.
 
 #### ACTION Run the app
 ```
-gradle clean build run
+$ gradle clean build run
 ```
 
 The above should run the application and bind the service port to 8081 and the admin port to 9090.
@@ -531,7 +531,7 @@ We call it from the same thread as the service actor by using the reactor (`.inv
 
 ### ACTION Run it
 ```
-gradle run
+$ gradle clean build run
 ```
 
 ### ACTION Hit it with rest a few times
