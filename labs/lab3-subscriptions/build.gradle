@@ -1,0 +1,51 @@
+group = 'io.advantageous.reakt.examples'
+
+apply plugin: 'java'
+apply plugin: 'idea'
+apply plugin: 'groovy'
+apply plugin: 'maven'
+apply plugin: 'application'
+
+version = '0.1-SNAPSHOT'
+
+sourceCompatibility = JavaVersion.VERSION_1_8
+targetCompatibility = JavaVersion.VERSION_1_8
+
+sourceSets {
+    main {
+        java {
+            srcDir 'src/main/java'
+        }
+        resources {
+            srcDir 'src/main/resources'
+        }
+    }
+}
+
+mainClassName = "io.advantageous.reakt.examples.service.SubscriptionServiceImpl"
+
+
+repositories {
+    mavenLocal()
+    mavenCentral()
+    maven {
+        url "https://oss.sonatype.org/content/repositories/releases/"
+    }
+    maven { url = 'https://oss.sonatype.org/content/repositories/releases/' }
+}
+
+dependencies {
+    compile "io.advantageous.qbit:qbit-admin:$qbitVersion"
+    compile "io.advantageous.qbit:qbit-vertx:$qbitVersion"
+    compile "io.advantageous.reakt:reakt:$reaktVersion"
+    compile "com.datastax.cassandra:cassandra-driver-core:$cassandraCoreVersion"
+
+    testCompile "junit:junit:$junitVersion"
+}
+
+idea {
+    project {
+        jdkName = '1.8'
+        languageLevel = '1.8'
+    }
+}
