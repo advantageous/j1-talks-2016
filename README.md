@@ -26,3 +26,4 @@ Welcome to the JavaOne Talks 2016 for Reakt et al
 * Speakers: *Geoff Chandler*, *Jason Daniel*, and *Rick Hightower*  
 * Room: Hilton—Franciscan Room C/D
 * Date and Time: 09/20/16, 04:00:00 PM - 06:00:00 PM 
+
