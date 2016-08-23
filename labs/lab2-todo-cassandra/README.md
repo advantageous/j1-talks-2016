@@ -1,4 +1,5 @@
-# Hands on Lab - Reactive Java - Promises and Streams with Reakt in Practice
+# Hands on Lab JavaOne 2016
+# Reactive Java - Promises and Streams with Reakt in Practice
 
 ## Overview of Reakt for the lab
 
