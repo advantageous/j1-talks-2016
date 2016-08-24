@@ -1,4 +1,5 @@
-# Hands on Lab - Reactive Java - Promises and Streams with Reakt in Practice
+# Hands on Lab JavaOne 2016
+# Reactive Java - Promises and Streams with Reakt in Practice
 
 ## Overview of Reakt for the lab
 
@@ -91,6 +92,12 @@ We will cover some examples of Replay promises.
 
 
 Let's transition into some actual code examples and lab work.
+
+## VirtualBox Credentials
+* Box name: JavaOneReakt
+* Computer name: java1-reakt
+* Username: *dev*
+* Password: *j1reakt!*
 
 
 ## Building and running the example
@@ -409,7 +416,7 @@ Then use the IDE to run the unit test.
 
 #### ACTION Run the app
 ```
-gradle clean build run
+$ gradle clean build run
 ```
 
 The above should run the application and bind the service port to 8081 and the admin port to 9090.
@@ -531,7 +538,7 @@ We call it from the same thread as the service actor by using the reactor (`.inv
 
 ### ACTION Run it
 ```
-gradle run
+$ gradle clean build run
 ```
 
 ### ACTION Hit it with rest a few times
