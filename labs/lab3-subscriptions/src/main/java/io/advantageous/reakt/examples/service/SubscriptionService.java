@@ -11,7 +11,7 @@ import java.util.List;
  */
 public interface SubscriptionService {
 
-    Promise<Boolean> create(Subscription subscription);
+    Promise<Subscription> create(Subscription subscription);
 
     Promise<Boolean> update(String id, Subscription subscription);
 

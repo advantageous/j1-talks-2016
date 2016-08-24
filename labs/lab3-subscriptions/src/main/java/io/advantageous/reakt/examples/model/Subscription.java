@@ -65,5 +65,6 @@ public class Subscription {
         result = 31 * result + (thirdPartyId != null ? thirdPartyId.hashCode() : 0);
         return result;
     }
+
 }
 

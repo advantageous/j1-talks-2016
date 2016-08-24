@@ -3,10 +3,9 @@ package io.advantageous.reakt.examples.repository;
 import io.advantageous.reakt.examples.model.Subscription;
 import io.advantageous.reakt.promise.Promise;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.TreeMap;
+import java.util.*;
+
+import static io.advantageous.reakt.promise.Promises.invokablePromise;
 
 /**
  * Created by jasondaniel on 8/22/16.
@@ -19,25 +18,47 @@ public class SubscriptionRepository {
         map =  new TreeMap<>();
     }
 
-    public void store(Subscription subscription, final Promise<Boolean> promise){
-        map.put(subscription.getId(), subscription);
-        promise.reply(true);
+    public Promise<Subscription> store(Subscription subscription){
+        return invokablePromise(promise -> {
+            subscription.setId(UUID.randomUUID().toString());
+            map.put(subscription.getId(), subscription);
+            promise.resolve(subscription);
+        });
     }
 
-    public void find(String id, final Promise<Subscription> promise){
-        promise.reply(map.get(id));
-
+    public Promise<Subscription> find(String id){
+        return invokablePromise(promise ->
+            promise.resolve(map.get(id))
+        );
     }
 
-    public void update(Subscription subscription, Promise<Boolean> promise){
-        promise.reply(true);
+    public Promise<Boolean> update(Subscription subscription) {
+        return invokablePromise(promise -> {
+            Subscription current = map.get(subscription.getId());
+
+            if (current == null) {
+                promise.reject(" Subscription does not exist");
+            }
+            else {
+                if (subscription.getName() != null) {
+                    current.setName(subscription.getName());
+                }
+
+                promise.resolve(true);
+            }
+        });
     }
 
-    public void remove(String id, Promise<Boolean> promise){
-        promise.reply(true);
+    public Promise<Boolean> remove(String id){
+        return invokablePromise(promise -> {
+            map.remove(id);
+            promise.resolve(true);
+        });
     }
 
-    public void list(Promise<List<Subscription>> promise){
-        promise.reply(new ArrayList<>(map.values()));
+    public Promise<List<Subscription>> list(){
+        return invokablePromise(promise ->
+            promise.resolve(new ArrayList<>(map.values()))
+        );
     }
 }

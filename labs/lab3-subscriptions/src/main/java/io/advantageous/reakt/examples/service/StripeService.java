@@ -5,23 +5,33 @@ import io.advantageous.reakt.promise.Promise;
 
 import java.util.UUID;
 
+import static io.advantageous.reakt.promise.Promises.invokablePromise;
+
 /**
  * Created by jasondaniel on 8/22/16.
  */
 public class StripeService {
 
-    public static void create(final Promise<String> promise){
+    public static Promise<String> create(Subscription subscription){
         //Call Stripe to create a subscription
-        promise.reply(UUID.randomUUID().toString());
+        return invokablePromise(promise ->
+                promise.resolve(UUID.randomUUID().toString())
+        );
+
+
     }
 
-    public static void update(Subscription subscription, Promise<Boolean> promise){
+    public static Promise<Boolean> update(Subscription subscription){
         //Call Stripe to update a subscription
-        promise.reply(true);
+        return invokablePromise(promise ->
+                promise.resolve(true)
+        );
     }
 
-    public static void remove(String id, Promise<Boolean> promise){
+    public static Promise<Boolean> remove(String id){
         //Call Stripe to remove a subscription
-        promise.reply(true);
+        return invokablePromise(promise ->
+                promise.resolve(true)
+        );
     }
 }

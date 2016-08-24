@@ -12,10 +12,13 @@ import io.advantageous.reakt.examples.model.Subscription;
 import io.advantageous.reakt.examples.repository.SubscriptionRepository;
 import io.advantageous.reakt.promise.Promise;
 import io.advantageous.reakt.promise.Promises;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.net.URI;
 import java.time.Duration;
 import java.util.*;
+import java.util.function.Function;
 
 import static io.advantageous.qbit.admin.ManagedServiceBuilder.managedServiceBuilder;
 import static io.advantageous.qbit.admin.ServiceManagementBundleBuilder.serviceManagementBundleBuilder;
@@ -37,7 +40,7 @@ public class SubscriptionServiceImpl implements SubscriptionService {
     private static final String MGMT_LIST_KEY     = "subscription.list.called";
     private static final String STATSD_ADDRESS    = "udp://192.168.99.100:8125";
 
-
+    private final Logger logger = LoggerFactory.getLogger(this.getClass());
     private final SubscriptionRepository repository;
     private final ServiceManagementBundle mgmt;
 
@@ -53,23 +56,38 @@ public class SubscriptionServiceImpl implements SubscriptionService {
 
     @Override
     @POST(value = PATH)
-    public Promise<Boolean> create(final Subscription subscription) {
-        return invokablePromise(completePromise -> {
+    public Promise<Subscription> create(final Subscription subscription) {
+        return invokablePromise(promise -> {
             mgmt.increment(MGMT_CREATE_KEY);
 
-            Promise<String> stripePromise = promise();
-            Promise<Boolean> subscriptionPromise = promise();
+            Promise<Subscription> repoPromise = repository.store(subscription)
+                    .invoke()
+                    .then(sub -> {
+                        logger.info("subscription created id="+sub.getId());
+                        promise.resolve(sub);
+                    })
+                    .catchError(error -> {
+                        logger.error("Unable to create subscription", error);
+                        promise.reject("Unable to create subscription");
+                    });
 
-            all(stripePromise, subscriptionPromise);
+            Promise<String> stripePromise = StripeService.create(subscription)
+                    .then(stripeId -> {
+                        logger.info("Stripe subscription created id="+stripeId);
+                    })
+                    .catchError(error -> {
+                        logger.error("Unable to create stripe subscription", error);
+                        promise.reject("Unable to create stripe subscription");
+                    });
 
-            StripeService.create(stripePromise);
+            stripePromise
+                    .thenMap(stripeId -> {
+                        subscription.setThirdPartyId(stripeId);
+                        return subscription;
+                    })
+                    .thenPromise(repoPromise);
 
-            subscription.setId(UUID.randomUUID().toString());
-            subscription.setThirdPartyId(stripePromise.get());
-
-            repository.store(subscription, subscriptionPromise);
-
-            completePromise.accept(true);
+            stripePromise.invoke();
         });
     }
 
@@ -77,74 +95,105 @@ public class SubscriptionServiceImpl implements SubscriptionService {
     @PUT(value = PATH+"/{0}")
     public Promise<Boolean> update(final @PathVariable String id,
                                    final Subscription subscription) {
-        return invokablePromise(completePromise -> {
+        return invokablePromise(promise -> {
             mgmt.increment(MGMT_UPDATE_KEY);
 
-            Promise<Subscription> findPromise = promise();
-            Promise<Boolean> updatePromise = promise();
-            Promise<Boolean> updateStripePromise = promise();
+            subscription.setId(id);
 
-            all(updatePromise, updateStripePromise);
+            Promise<Boolean> repoPromise = repository.update(subscription)
+                    .then(sub -> {
+                        logger.info("subscription "+id+" updated");
+                        promise.resolve(true);
+                    })
+                    .catchError(error -> {
+                        logger.error("Unable to update subscription with id="+id, error);
+                        promise.reject("Unable to update subscription with id="+id);
+                    })
+                    .invoke();
 
-            repository.find(id, findPromise);
+            Promise<Boolean> stripePromise = StripeService.update(subscription)
+                    .then(sub -> {
+                        logger.info("Stripe subscription "+id+" updated");
+                        promise.resolve(true);
+                    })
+                    .catchError(error -> {
+                        logger.error("Unable to update stripe subscription with id="+id, error);
+                        promise.reject("Unable to update stripe subscription with id="+id);
+                    })
+                    .invoke();
 
-            Subscription current = findPromise.get();
-
-            if(current == null){
-                current = new Subscription();
-                current.setId(id);
-            }
-
-            if(subscription.getName() != null){
-                current.setName(subscription.getName());
-            }
-
-            repository.update(current, updatePromise);
-            StripeService.update(current, Promises.promise());
-
-            completePromise.accept(true);
+            all(repoPromise, stripePromise);
         });
     }
 
     @Override
     @DELETE(value = PATH+"/{0}")
     public Promise<Boolean> remove(final @PathVariable String id) {
-        return invokablePromise(completePromise -> {
+        return invokablePromise(promise -> {
             mgmt.increment(MGMT_REMOVE_KEY);
 
-            Promise<Boolean> removePromise = promise();
-            Promise<Boolean> removeStripePromise = promise();
+            Promise<Boolean> repoPromise = repository.remove(id)
+                    .then(subscription -> {
+                        logger.info("subscription "+id+" removed");
+                        promise.resolve(true);
+                    })
+                    .catchError(error -> {
+                        logger.error("Unable to remove subscription with id="+id, error);
+                        promise.reject("Unable to remove subscription with id="+id);
+                    })
+                    .invoke();
 
-            all(removePromise, removeStripePromise);
+            Promise<Boolean> stripePromise = StripeService.remove(id)
+                    .then(subscription -> {
+                        logger.info("Stripe subscription "+id+" removed");
+                        promise.resolve(true);
+                    })
+                    .catchError(error -> {
+                        logger.error("Unable to remove stripe subscription with id="+id, error);
+                        promise.reject("Unable to remove stripe subscription with id="+id);
+                    })
+                    .invoke();
 
-            repository.remove(id, promise());
-            StripeService.remove(id, removeStripePromise);
+            all(repoPromise, stripePromise);
 
-            completePromise.accept(true);
         });
     }
 
     @Override
     @GET(value = PATH+"/{0}")
     public Promise<Subscription> retrieve(final @PathVariable String id) {
-        return invokablePromise(completePromise -> {
+        return invokablePromise(promise -> {
             mgmt.increment(MGMT_RETRIEVE_KEY);
 
-            Promise<Subscription> findPromise = promise();
-            repository.find(id, findPromise);
-            completePromise.accept(findPromise.get());
+            repository.find(id)
+                    .then(subscription -> {
+                        logger.info("subscription "+id+" retrieved");
+                        promise.resolve(subscription);
+                    })
+                    .catchError(error -> {
+                        logger.error("Unable to find subscription with id="+id, error);
+                        promise.reject("Unable to find subscription with id="+id);
+                    })
+                    .invoke();
         });
     }
 
     @Override
     @GET(value = PATH)
     public Promise<List<Subscription>> list() {
-        return invokablePromise(completePromise -> {
+        return invokablePromise(promise -> {
             mgmt.increment(MGMT_LIST_KEY);
 
-            Promise<List<Subscription>> listPromise = promise();
-            repository.list(listPromise);
-            completePromise.accept(listPromise.get());
+            repository.list()
+                    .then(subscriptions -> {
+                        logger.info("list subscriptions");
+                        promise.resolve(subscriptions);
+                    })
+                    .catchError(error -> {
+                        logger.error("Unable to list subscriptions", error);
+                        promise.reject("Unable to list subscriptions");
+                    })
+                    .invoke();
         });
     }
 
