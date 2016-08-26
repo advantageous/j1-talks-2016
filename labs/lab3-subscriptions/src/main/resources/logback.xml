@@ -1,0 +1,26 @@
+<configuration>
+
+
+    <appender name="STASH-UDP" class="net.logstash.logback.appender.LogstashSocketAppender">
+        <host>${LOGSTASH_HOST:-192.168.99.100}</host>
+        <port>${LOGSTASH_PORT:-5001}</port>
+        <customFields>{"serviceName":"sample-dcos-qbit","serviceHost":"${HOST}","servicePort":"${PORT0}","serviceId":"sample-dcos-qbit-${HOST}-${PORT0}","serviceAdminPort":"${PORT1}"}</customFields>
+    </appender>
+
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>
+                ${LOGBACK_PATTERN:-%magenta(%d{HH:mm:ss.SSS}) %yellow([%thread]) %highlight(%-5level) %cyan(%logger{15}) - %msg%n}
+            </pattern>
+        </encoder>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="STDOUT"/>
+        <appender-ref ref="STASH-UDP"/>
+    </root>
+
+    <logger name="io.advantageous" level="INFO"/>
+    <logger name="io.advantageous.dcos" level="INFO"/>
+
+</configuration>

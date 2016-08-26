@@ -1,51 +1,101 @@
+buildscript {
+    ext.kotlin_version = '1.0.1-2'
+
+    repositories {
+        mavenCentral()
+    }
+
+}
+
+plugins {
+    id "maven"
+    id 'application'
+    id "io.advantageous.docker-test" version "0.1.6"
+    id "idea"
+}
+
 group = 'io.advantageous.reakt.examples'
-
-apply plugin: 'java'
-apply plugin: 'idea'
-apply plugin: 'groovy'
-apply plugin: 'maven'
-apply plugin: 'application'
-
 version = '0.1-SNAPSHOT'
 
 sourceCompatibility = JavaVersion.VERSION_1_8
-targetCompatibility = JavaVersion.VERSION_1_8
-
-sourceSets {
-    main {
-        java {
-            srcDir 'src/main/java'
-        }
-        resources {
-            srcDir 'src/main/resources'
-        }
-    }
-}
-
 mainClassName = "io.advantageous.reakt.examples.service.SubscriptionServiceImpl"
-
 
 repositories {
     mavenLocal()
     mavenCentral()
-    maven {
-        url "https://oss.sonatype.org/content/repositories/releases/"
-    }
-    maven { url = 'https://oss.sonatype.org/content/repositories/releases/' }
 }
 
 dependencies {
-    compile "io.advantageous.qbit:qbit-admin:$qbitVersion"
-    compile "io.advantageous.qbit:qbit-vertx:$qbitVersion"
-    compile "io.advantageous.reakt:reakt:$reaktVersion"
-    compile "com.datastax.cassandra:cassandra-driver-core:$cassandraCoreVersion"
 
-    testCompile "junit:junit:$junitVersion"
+    // Config lib.
+    compile 'io.advantageous.konf:konf:1.3.8'
+
+    compile 'io.advantageous.discovery:lokate:1.1.0'
+
+    // Reakt for Java promises.
+    compile 'io.advantageous.reakt:reakt:2.8.16'
+
+    compile 'io.advantageous.reakt:reakt-guava:2.1.0.RELEASE'
+    compile 'io.advantageous.reakt:reakt-vertx:2.1.0.RELEASE'
+
+    // Unit testing and Mock.
+    testCompile 'junit:junit:4.11'
+    testCompile 'org.mockito:mockito-core:1.10.19'
+
+
+    // Cassandra.
+    compile 'com.datastax.cassandra:cassandra-driver-core:3.0.0'
+
+    // QBit for service method dispatch w/o code gen over event bus.
+    compile 'io.advantageous.qbit:qbit-admin:1.10.7'
+    compile 'io.advantageous.qbit:qbit-vertx:1.10.7'
+
+
+    //Test compile for docker
+    testCompile 'io.advantageous.gradle:docker-test-plugin:0.1.6'
+
+    // Logging.
+    compile("ch.qos.logback:logback-core:1.1.3")
+    compile("ch.qos.logback:logback-classic:1.1.3")
+    compile("org.slf4j:slf4j-api:1.7.12")
+    compile('net.logstash.logback:logstash-logback-encoder:4.6')
+
+    // Cassandra.
+    compile 'com.datastax.cassandra:cassandra-driver-core:3.0.0'
+
 }
 
-idea {
-    project {
-        jdkName = '1.8'
-        languageLevel = '1.8'
+test {
+    useJUnit {
+        excludeCategories 'io.advantageous.test.DockerTest'
+    }
+}
+
+
+testDockerContainers {
+    a_grafana {
+        containerName "grafana_j1"
+        image "advantageous/grafana:v1"
+        portMapping(container: 9000, host: 3003)
+        portMapping(container: 8086, host: 8086)
+        portMapping(container: 8083, host: 3004)
+        portMapping(container: "8125/udp", host: 8125)
+    }
+    b_elk {
+        containerName "elk_j1"
+        image "advantageous/elk:0.1"
+        portMapping(container: 9200, host: 9200)
+        portMapping(container: 5044, host: 5044)
+        portMapping(container: 5000, host: 5000)
+        portMapping(container: 5601, host: 5601)
+        portMapping(container: "5001/udp", host: 5001)
+        runArgs " /usr/local/bin/start.sh "
+    }
+    c_cassandra {
+        publishAll true
+        containerName "cassandra_j1"
+        portMapping container: 9042, host: 39042
+        image "cassandra:2.2.5"
+        waitAfterRun 30
     }
 }

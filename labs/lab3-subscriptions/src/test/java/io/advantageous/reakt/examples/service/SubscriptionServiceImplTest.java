@@ -1,10 +1,13 @@
 package io.advantageous.reakt.examples.service;
 
+import io.advantageous.config.Config;
 import io.advantageous.qbit.admin.ManagedServiceBuilder;
 import io.advantageous.qbit.admin.ServiceManagementBundle;
 import io.advantageous.qbit.queue.QueueCallBackHandler;
 import io.advantageous.qbit.service.ServiceBuilder;
 import io.advantageous.reakt.examples.model.Subscription;
+import io.advantageous.reakt.examples.repository.SubscriptionRepository;
+import io.advantageous.reakt.examples.util.ConfigUtils;
 import org.junit.Test;
 
 import java.util.UUID;
@@ -26,8 +29,8 @@ public class SubscriptionServiceImplTest {
         final Subscription sub1 = new Subscription(UUID.randomUUID().toString(), "sub1", "");
         final Subscription sub2 = new Subscription(UUID.randomUUID().toString(), "sub2", "");
 
-        assertTrue(subscriptionService.create(sub1).invoke().get().getName().equals("sub1"));
-        assertTrue(subscriptionService.create(sub2).invoke().get().getName().equals("sub2"));
+        assertTrue(subscriptionService.create(sub1).invoke().get());
+        assertTrue(subscriptionService.create(sub2).invoke().get());
         assertTrue(subscriptionService.remove(sub1.getId()).invoke().get());
         assertTrue(subscriptionService.list()
                 .invoke()
@@ -57,13 +60,21 @@ public class SubscriptionServiceImplTest {
 
 
     private SubscriptionService createSubscriptionService() {
+        final Config config = ConfigUtils.getConfig("subscription");
+
         final ManagedServiceBuilder managedServiceBuilder = managedServiceBuilder();
 
         final ServiceManagementBundle serviceManagementBundle =
                 serviceManagementBundleBuilder().setServiceName("SubscriptionServiceImpl")
                         .setManagedServiceBuilder(managedServiceBuilder).build();
 
-        final SubscriptionService subscriptionService = new SubscriptionServiceImpl(serviceManagementBundle);
+        final SubscriptionRepository subscriptionRepository =
+                new SubscriptionRepository(config.getInt("cassandra.replicationFactor"),
+                        config.getUriList("cassandra.uris"));
+
+
+        final SubscriptionService subscriptionService =
+                new SubscriptionServiceImpl(serviceManagementBundle, subscriptionRepository);
 
 
         return ServiceBuilder.serviceBuilder().setServiceObject(subscriptionService).addQueueCallbackHandler(

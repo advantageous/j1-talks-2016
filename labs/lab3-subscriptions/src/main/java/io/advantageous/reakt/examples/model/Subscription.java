@@ -9,6 +9,7 @@ public class Subscription {
     private String id;
     private String name;
     private String thirdPartyId;
+    private long createTime;
 
     public Subscription(){}
 
@@ -16,6 +17,13 @@ public class Subscription {
         this.id = id;
         this.name = name;
         this.thirdPartyId = thirdPartyId;
+    }
+
+    public Subscription(String id, String name, String thirdPartyId, long createTime) {
+        this.id = id;
+        this.name = name;
+        this.thirdPartyId = thirdPartyId;
+        this.createTime = createTime;
     }
 
     public String getId() {
@@ -45,6 +53,14 @@ public class Subscription {
         this.thirdPartyId = thirdPartyId;
     }
 
+    public long getCreateTime() {
+        return createTime;
+    }
+
+    public void setCreateTime(long createTime) {
+        this.createTime = createTime;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -52,6 +68,7 @@ public class Subscription {
 
         Subscription that = (Subscription) o;
 
+        if (createTime != that.createTime) return false;
         if (id != null ? !id.equals(that.id) : that.id != null) return false;
         if (name != null ? !name.equals(that.name) : that.name != null) return false;
         return thirdPartyId != null ? thirdPartyId.equals(that.thirdPartyId) : that.thirdPartyId == null;
@@ -63,8 +80,8 @@ public class Subscription {
         int result = id != null ? id.hashCode() : 0;
         result = 31 * result + (name != null ? name.hashCode() : 0);
         result = 31 * result + (thirdPartyId != null ? thirdPartyId.hashCode() : 0);
+        result = 31 * result + (int) (createTime ^ (createTime >>> 32));
         return result;
     }
-
 }
 

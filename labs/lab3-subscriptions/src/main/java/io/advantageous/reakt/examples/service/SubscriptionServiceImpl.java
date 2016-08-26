@@ -1,5 +1,6 @@
 package io.advantageous.reakt.examples.service;
 
+import io.advantageous.config.Config;
 import io.advantageous.qbit.admin.ManagedServiceBuilder;
 import io.advantageous.qbit.admin.ServiceManagementBundle;
 import io.advantageous.qbit.annotation.PathVariable;
@@ -10,6 +11,7 @@ import io.advantageous.qbit.annotation.http.POST;
 import io.advantageous.qbit.annotation.http.PUT;
 import io.advantageous.reakt.examples.model.Subscription;
 import io.advantageous.reakt.examples.repository.SubscriptionRepository;
+import io.advantageous.reakt.examples.util.ConfigUtils;
 import io.advantageous.reakt.promise.Promise;
 import io.advantageous.reakt.promise.Promises;
 import org.slf4j.Logger;
@@ -44,9 +46,9 @@ public class SubscriptionServiceImpl implements SubscriptionService {
     private final SubscriptionRepository repository;
     private final ServiceManagementBundle mgmt;
 
-    public SubscriptionServiceImpl(ServiceManagementBundle mgmt){
-        repository = new SubscriptionRepository();
-
+    public SubscriptionServiceImpl(ServiceManagementBundle mgmt,
+                                   SubscriptionRepository repository){
+        this.repository = repository;
         this.mgmt = mgmt;
 
         mgmt.reactor()
@@ -56,20 +58,9 @@ public class SubscriptionServiceImpl implements SubscriptionService {
 
     @Override
     @POST(value = PATH)
-    public Promise<Subscription> create(final Subscription subscription) {
+    public Promise<Boolean> create(final Subscription subscription) {
         return invokablePromise(promise -> {
             mgmt.increment(MGMT_CREATE_KEY);
-
-            Promise<Subscription> repoPromise = repository.store(subscription)
-                    .invoke()
-                    .then(sub -> {
-                        logger.info("subscription created id="+sub.getId());
-                        promise.resolve(sub);
-                    })
-                    .catchError(error -> {
-                        logger.error("Unable to create subscription", error);
-                        promise.reject("Unable to create subscription");
-                    });
 
             Promise<String> stripePromise = StripeService.create(subscription)
                     .then(stripeId -> {
@@ -80,14 +71,19 @@ public class SubscriptionServiceImpl implements SubscriptionService {
                         promise.reject("Unable to create stripe subscription");
                     });
 
-            stripePromise
-                    .thenMap(stripeId -> {
-                        subscription.setThirdPartyId(stripeId);
-                        return subscription;
-                    })
-                    .thenPromise(repoPromise);
+            subscription.setThirdPartyId(stripePromise.invoke().get());
 
-            stripePromise.invoke();
+            Promise<Boolean> repoPromise = repository.store(subscription)
+                    .then(result -> {
+                        logger.info("subscription created id");
+                        promise.resolve(result);
+                    })
+                    .catchError(error -> {
+                        logger.error("Unable to create subscription", error);
+                        promise.reject("Unable to create subscription");
+                    })
+                    .invoke();
+
         });
     }
 
@@ -198,6 +194,7 @@ public class SubscriptionServiceImpl implements SubscriptionService {
     }
 
     public static void main(final String... args) throws Exception {
+        final Config config = ConfigUtils.getConfig("subscription");
 
         final ManagedServiceBuilder managedServiceBuilder = managedServiceBuilder()
                 .setRootURI(VERSION)
@@ -211,7 +208,12 @@ public class SubscriptionServiceImpl implements SubscriptionService {
                 .setServiceName(SubscriptionServiceImpl.class.getSimpleName())
                 .setManagedServiceBuilder(managedServiceBuilder).build();
 
-        final SubscriptionService subscriptionService = new SubscriptionServiceImpl(serviceManagementBundle);
+        final SubscriptionRepository  subscriptionRepository =
+                new SubscriptionRepository(config.getInt("cassandra.replicationFactor"),
+                                           config.getUriList("cassandra.uris"));
+
+        final SubscriptionService subscriptionService =
+                new SubscriptionServiceImpl(serviceManagementBundle, subscriptionRepository);
 
         managedServiceBuilder
                 .addEndpointServiceWithServiceManagmentBundle(subscriptionService, serviceManagementBundle)
