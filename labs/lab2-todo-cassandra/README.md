@@ -18,10 +18,12 @@ Note: This mostly just provides the interfaces not the implementations. There ar
 [Guava, Cassandra,](https://github.com/advantageous/reakt-guava) etc.
 [Elekt](http://advantageous.github.io/elekt/) uses Reakt for its reactive leadership election.
 [Lokate](http://advantageous.github.io/elekt/) uses Reakt for client side service discovery
-for DNS-A, DNS-SRV, Consul and Mesos/Marathon. [QBit uses Reakt] for its reactor implementations and supports
+for DNS-A, DNS-SRV, Consul and Mesos/Marathon. [QBit uses Reakt](http://advantageous.github.io/qbit/)
+for its reactor implementations and supports
+
 Reakt `Promise`s and `Callback`s as first class citizens.
 
-You can use Reakt from gradle or maven.
+You can use *Reakt* from *gradle* or *maven*.
 
 #### Using from maven
 
@@ -84,10 +86,11 @@ There are three types of promises:
 * Blocking promises (for testing and legacy integration)
 * Replay promises (allow promises to be handled on the same thread as caller)
 
-This lab will cover all three as well as Promise coordination.
+This lab will cover all three as well as `Promise` coordination and circuit
+`Breakers`.
 
-*Replay promises* are the most like their JS cousins but implemented with a MT world in mind.
-*Replay promises* are usually managed by the Reakt `Reactor` and supports environments like *Vert.x* and *QBit*.
+*Replay promises* are the most like their JS cousins but implemented with a multithreaded world in mind.
+*Replay promises* are usually managed by the *Reakt* `Reactor` and supports environments like *Vert.x* and *QBit*.
 We will cover some examples of Replay promises.
 
 
@@ -376,13 +379,15 @@ public class TodoRepoTest {
 
     @Before
     public void before() throws Exception {
-        todoRepo = new TodoRepo(1, ConfigUtils.getConfig("todo").getConfig("cassandra").getUriList("uris"));
+        todoRepo = new TodoRepo(1, ConfigUtils.getConfig("todo")
+        .getConfig("cassandra").getUriList("uris"));
         todoRepo.connect().invokeAsBlockingPromise().get();
     }
 
     @Test
     public void addTodo() throws Exception {
-        final Promise<Boolean> promise = todoRepo.addTodo(new Todo("Rick", "Rick", System.currentTimeMillis()))
+        final Promise<Boolean> promise = todoRepo
+        .addTodo(new Todo("Rick", "Rick", System.currentTimeMillis()))
                 .invokeAsBlockingPromise();
         assertTrue(promise.success());
         assertTrue(promise.get());
@@ -501,8 +506,6 @@ Here is a high level list of Reactor methods.
 *  `any(...)` create a promise that does not async return until one of the promises async return. (you can pass a timeout)
 * `process` process all tasks, callbacks.
 
-
-
 A `Reactor` provides *replay promise*, which are promises whose handlers (callbacks) can be replayed on the callers thread.
 To replay the handlers on this service actors thread (`TodoServiceImpl`), we can use the `Promise.invokeWithReactor` method
 as follows:
@@ -551,8 +554,10 @@ $ gradle clean build run
 Now go to [grafana](http://localhost:3003/dashboard/db/main?panelId=1&fullscreen&edit&from=now-5m&to=now) and look
  at the metrics. (Note this is a local link so we are assuming you are running the examples).
 
+## Step 8 Add a circuit breaker
+You will add a circuit breaker to managed the health of your Cassandra session.
 
-## Circuit Breakers
+### Circuit Breakers Background
 
 A `Breaker` is short for [*Circuit Breaker*](http://martinfowler.com/bliki/CircuitBreaker.html).
 The idea behind the breaker is to wrap access to a service so that errors
@@ -570,7 +575,7 @@ alerting and so your services can be taken out of upstream discovery.
 The *reactor* allows us to specify timeouts for the downstream services to return to us.
 This is to help deal with unresponsive supplier, and to not be an unresponsive
 supplier. Timeouts, async programming and the *circuit breaker*  prevents
-cascading failures for upstream clients and services that use the `TodoRepo`.
+cascading failures for upstream clients and services that use the `TodoService`.
 
 Let's walk through an example. First we use `Breaker.opened` to create a circuit breaker
 for a Cassandra `session` that is open (open and broken mean the same thing with `Breaker`).
@@ -810,6 +815,7 @@ the `TodoRepoImpl`.
 
 The `reactor` has default timeouts for promise construction, but you can override the
 timeouts when you create the promise or use `invokeWithReactor` (`invokeWithReactor(reactor, Duration.ofSeconds(10)))`).
+
 
 #### ACTION pull down the labs and the solutions into two separate directories.
 
