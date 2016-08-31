@@ -1,6 +1,7 @@
 package io.advantageous.j1.reakt;
 
 
+import io.advantageous.j1.reakt.repo.TodoRepo;
 import io.advantageous.qbit.admin.ServiceManagementBundle;
 import io.advantageous.qbit.annotation.QueueCallback;
 import io.advantageous.qbit.annotation.QueueCallbackType;
@@ -87,33 +88,12 @@ public class TodoServiceImpl implements TodoService {
 
         mgmt.reactor().deferRun(() -> todoRepo.connect()
                 .catchError(error -> logger.error("Error connecting to repo", error))
-                .then(flag -> logger.info("Connecting to repo {}", flag))
+                .thenSafe(flag -> logger.info("Connecting to repo {}", flag))
                 .invoke());
 
 
         logger.info("Todo service created");
     }
-
-
-//    @Override
-//    @POST(value = "/todo")
-//    public Promise<Boolean> addTodo(final Todo todo) {
-//        logger.info("Add Todo to list {}", todo);
-//        return invokablePromise(promise -> {
-//            /** Send KPI addTodo called every time the addTodo method gets called. */
-//            mgmt.increment("addTodo.called");
-//            todoRep.addTodo(todo)
-//                    .then(result -> {
-//                        logger.info("Added todo to repo");
-//                        promise.resolve(result);
-//                    })
-//                    .catchError(error -> {
-//                        logger.error("Unable to add todo to repo", error);
-//                        promise.reject("Unable to add todo to repo");
-//                    })
-//                    .invoke();
-//        });
-//    }
 
 
     @Override
@@ -147,7 +127,7 @@ public class TodoServiceImpl implements TodoService {
             /** Send KPI addTodo.removed every time the removeTodo method gets called. */
             mgmt.increment("removeTodo.called");
             //not implemented
-            promise.accept(true);
+            promise.resolve(true);
         });
     }
 
