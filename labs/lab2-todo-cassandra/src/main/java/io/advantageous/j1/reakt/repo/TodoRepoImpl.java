@@ -37,7 +37,9 @@ public class TodoRepoImpl implements TodoRepo {
     private final DiscoveryService discoveryService;
     private final URI cassandraURI;
     private final AtomicLong cassandraErrors = new AtomicLong();
-    private Breaker<Session> sessionBreaker = Breaker.opened();
+
+    //TODO Create an opened breaker
+    private Breaker<Session> sessionBreaker = null; //Breaker.opened();
     private int notConnectedCount;
 
     public TodoRepoImpl(final int replicationFactor,
@@ -53,45 +55,95 @@ public class TodoRepoImpl implements TodoRepo {
 
     @QueueCallback(QueueCallbackType.INIT)
     private void start() {
-        reactor.runTaskAfter(Duration.ofSeconds(60), () -> {
-            logger.info("Registering health check and recovery for repo");
-            reactor.addRepeatingTask(Duration.ofSeconds(30), this::circuitBreakerTest);
-        });
+        //TODO Use the reactor to create a task to call circuitBreakerTest that
+        //TODO runs after 60 seconds and then runs every 30 seconds.
+
+//        reactor.runTaskAfter(???, () -> {
+//
+//            reactor.addRepeatingTask(???, ???);
+//        });
+
+
+        //Solution
+//
+//        reactor.runTaskAfter(Duration.ofSeconds(60), () -> {
+//            logger.info("Registering health check and recovery for repo");
+//
+//            reactor.addRepeatingTask(Duration.ofSeconds(30), this::circuitBreakerTest);
+//        });
     }
 
     private void circuitBreakerTest() {
-        sessionBreaker.ifBroken(() -> {
-            serviceMgmt.increment("repo.breaker.broken");
-            //Clean up the old session.
-            sessionBreaker.cleanup(session -> {
-                try {
-                    if (!session.isClosed()) {
-                        session.close();
-                    }
-                } catch (Exception ex) {
-                    logger.warn("unable to clean up old session", ex);
-                }
-            });
-            //Connect to repo.
-            connect().catchError(error -> {
-                notConnectedCount++;
-                logger.error("Not connected to repo " + notConnectedCount, error);
-                serviceMgmt.recordLevel("repo.not.connected", notConnectedCount);
-                serviceMgmt.increment("repo.connect.error");
-                serviceMgmt.increment("repo.connect.error." + error.getClass().getSimpleName().toLowerCase());
-                if (notConnectedCount > 10) {
-                    logger.error("Attempts to reconnect to Cassandra have failed. Marking repo as failed.");
-                    serviceMgmt.increment("repo.connect.error.fatal");
-                    serviceMgmt.setFailingWithError(error);
-                }
-            }).thenSafe(connected -> {
-                if (serviceMgmt.isFailing()) {
-                    serviceMgmt.increment("repo.connect.recover");
-                    serviceMgmt.recover();
-                }
-                notConnectedCount = 0;
-            }).invokeWithReactor(reactor);
-        });
+
+        //TODO if the session breaker is broken use cleanup to close the cassandra session.
+//        sessionBreaker.???(() -> {
+//            serviceMgmt.increment("repo.breaker.broken");
+//            //Clean up the old session.
+//            sessionBreaker.???(session -> {
+//                try {
+//                    if (!session.isClosed()) {
+//                        session.close();
+//                    }
+//                } catch (Exception ex) {
+//                    logger.warn("unable to clean up old session", ex);
+//                }
+//              });
+              //TODO Try to connect the session
+                    //Connect to repo.
+//            connect().??? (catchError)(error -> {
+//                notConnectedCount++;
+//                logger.error("Not connected to repo " + notConnectedCount, error);
+//                serviceMgmt.recordLevel("repo.not.connected", notConnectedCount);
+//                serviceMgmt.increment("repo.connect.error");
+//                serviceMgmt.increment("repo.connect.error." + error.getClass().getSimpleName().toLowerCase());
+//                if (notConnectedCount > 10) {
+//                    logger.error("Attempts to reconnect to Cassandra have failed. Marking repo as failed.");
+//                    serviceMgmt.increment("repo.connect.error.fatal");
+//                    serviceMgmt.setFailingWithError(error);
+//                }
+//            }).??? (then)(connected -> {
+//                if (serviceMgmt.isFailing()) {
+//                    serviceMgmt.increment("repo.connect.recover");
+//                    serviceMgmt.recover();
+//                }
+//                notConnectedCount = 0;
+//            }).invokeWithReactor(reactor);
+//        });
+
+
+// Solution
+//            sessionBreaker.ifBroken(() -> {
+//                serviceMgmt.increment("repo.breaker.broken");
+//                //Clean up the old session.
+//                sessionBreaker.cleanup(session -> {
+//                    try {
+//                        if (!session.isClosed()) {
+//                            session.close();
+//                        }
+//                    } catch (Exception ex) {
+//                        logger.warn("unable to clean up old session", ex);
+//                    }
+//                });
+//            //Connect to repo.
+//            connect().catchError(error -> {
+//                notConnectedCount++;
+//                logger.error("Not connected to repo " + notConnectedCount, error);
+//                serviceMgmt.recordLevel("repo.not.connected", notConnectedCount);
+//                serviceMgmt.increment("repo.connect.error");
+//                serviceMgmt.increment("repo.connect.error." + error.getClass().getSimpleName().toLowerCase());
+//                if (notConnectedCount > 10) {
+//                    logger.error("Attempts to reconnect to Cassandra have failed. Marking repo as failed.");
+//                    serviceMgmt.increment("repo.connect.error.fatal");
+//                    serviceMgmt.setFailingWithError(error);
+//                }
+//            }).thenSafe(connected -> {
+//                if (serviceMgmt.isFailing()) {
+//                    serviceMgmt.increment("repo.connect.recover");
+//                    serviceMgmt.recover();
+//                }
+//                notConnectedCount = 0;
+//            }).invokeWithReactor(reactor);
+//        });//end of ifBroken
 
     }
 
@@ -136,26 +188,29 @@ public class TodoRepoImpl implements TodoRepo {
 
     @Override
     public Promise<List<Todo>> loadTodos() {
-        return invokablePromise(promise -> sessionBreaker
-                .ifBroken(() -> {
-                    final String message = "Not connected to cassandra while adding todo";
-                    promise.reject(message);
-                    logger.error(message);
-                })//ifBroken
-                .ifOperational(session ->
-                        futureToPromise(
-                                session.executeAsync(select().all().from("Todo").where().limit(1000))
-                        ).catchError(error -> {
-                            recordCassandraError();
-                            promise.reject("Problem loading Todos", error);
-                        }).thenSafe(resultSet ->
-                                promise.resolve(
-                                        resultSet.all().stream().map(this::mapTodoFromRow)
-                                                .collect(Collectors.toList())
-                                )
-                        ).invokeWithReactor(reactor)
-                )//ifOperational
-        );
+
+        //Todo finish this method.
+        return null;
+
+        // Hints (you can cut & paste from the solution or the PDF.
+        //return invokablePromise(promise -> sessionBreaker
+                //ifBroken
+                //    promise.reject(message);
+                //    logger.error(message);
+                //
+                //ifOperational(session ->
+                //       futureToPromise(
+                //                session.executeAsync(select().all().from("Todo").where().limit(1000))
+                //        ).catchError(error -> {
+                //            recordCassandraError();
+                //           promise.reject("Problem loading Todos", error);
+                 //       }).thenSafe(resultSet ->
+                //                promise.resolve(
+                //                        resultSet.all().stream().map(this::mapTodoFromRow)
+                //                                .collect(Collectors.toList())
+                //                )
+                //        ).invokeWithReactor(reactor)
+                //)//ifOperational
     }
 
 
@@ -186,9 +241,17 @@ public class TodoRepoImpl implements TodoRepo {
                                 buildDBIfNeeded(sessionToInitialize)
                                         .thenSafe(session -> {
                                             cassandraErrors.set(0);
-                                            sessionBreaker = Breaker.operational(session, 10, theSession->
-                                                !theSession.isClosed() && cassandraErrors.incrementAndGet() > 25
-                                            );
+
+                                            //TODO create an operational breaker.
+                                            //sessionBreaker = Breaker.???(session, 10,
+                                            // theSession->
+                                            //    !theSession.isClosed() && cassandraErrors.incrementAndGet() > 25
+
+
+// Solution
+//                                            sessionBreaker = Breaker.operational(session, 10, theSession->
+//                                                !theSession.isClosed() && cassandraErrors.incrementAndGet() > 25
+//                                            );
                                             promise.resolve(true);
                                         })
                                         .catchError(error ->
