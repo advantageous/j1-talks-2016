@@ -583,7 +583,7 @@ Then we use Reakt's `reactor` to run `circuitBreakerTest` after 60 seconds (`run
 for every 30 seconds (`addRepeatingTask`).
 
 #### Creating a periodic health check for the TodoRepo called circuitBreakerTest
-```
+```java
 public class TodoRepoImpl implements TodoRepo {
     ...
     // Breaker to hold the session is initially open.
@@ -605,7 +605,7 @@ Breaker has methods like `ifBroken`, and `cleanup` to check if a the
 *circuit breaker* is open and to do cleanup on the circuit breaker.
 
 #### circuitBreakerTest: Clean up the session if the breaker is broken
-```
+```java
     private void circuitBreakerTest() {
         sessionBreaker.ifBroken(() -> {
             //Alert monitoring system.
