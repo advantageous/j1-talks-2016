@@ -42,7 +42,7 @@ public class TodoRepoTest {
 
     @Test
     public void addTodo() throws Exception {
-        final Promise<Boolean> promise = todoRepo.addTodo(new Todo("Rick", "Rick", System.currentTimeMillis(),"abc"))
+        final Promise<Boolean> promise = todoRepo.addTodo(new Todo("Rick", "Rick", 0L,"abc", System.currentTimeMillis()))
                 .invokeAsBlockingPromise();
         assertTrue(promise.success());
         assertTrue(promise.get());
@@ -52,7 +52,7 @@ public class TodoRepoTest {
     public void loadTodos() throws Exception {
 
         for (int i = 1; i < 10; i++) {
-            todoRepo.addTodo(new Todo("Geoff"+i, "Geoff"+i, System.currentTimeMillis(), "xyz"))
+            todoRepo.addTodo(new Todo("Geoff"+i, "Geoff"+i, System.currentTimeMillis(), "xyz", System.currentTimeMillis()))
                     .invokeAsBlockingPromise().get();
         }
 

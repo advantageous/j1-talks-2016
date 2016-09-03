@@ -1,5 +1,6 @@
 package io.advantageous.j1.reakt.repo;
 
+import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Row;
 import com.datastax.driver.core.Session;
 import io.advantageous.discovery.DiscoveryService;
@@ -16,8 +17,11 @@ import org.slf4j.LoggerFactory;
 
 import java.net.URI;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import static com.datastax.driver.core.Cluster.Builder;
@@ -106,27 +110,63 @@ public class TodoRepoImpl implements TodoRepo {
                     serviceMgmt.increment("cassandra.breaker.broken");
                 })
                 .ifOperational(session ->
-                        futureToPromise(session.executeAsync(insertInto("Todo")
-                                .value("id", todo.getId())
-                                .value("createTime", todo.getCreateTime())
-                                .value("name", todo.getName())
-                                .value("description", todo.getDescription()))
-                        ).catchError(error -> {
-                            serviceMgmt.increment("add.todo.fail");
-                            serviceMgmt.increment("add.todo.fail." +
-                                    error.getClass().getName().toLowerCase());
-                            recordCassandraError();
-                            promise.reject("unable to add todo", error);
-                        }).then(resultSet -> {
-                            if (resultSet.wasApplied()) {
-                                promise.resolve(true);
-                                serviceMgmt.increment("add.todo.success");
-                            } else {
-                                promise.resolve(false);
-                                serviceMgmt.increment("add.todo.fail.not.added");
-                            }
-                        }).invokeWithReactor(reactor, Duration.ofSeconds(10)))
+                        doAddTodo(todo, promise, session)
+                )
         );
+    }
+
+    private void doAddTodo(final Todo todo,
+                           final Promise<Boolean> returnPromise,
+                           final Session session) {
+
+        final Promise<ResultSet> saveToTodoTablePromise = futureToPromise(
+                session.executeAsync(insertInto("Todo")
+                .value("id", todo.getId())
+                .value("updatedTime", todo.getUpdatedTime())
+                .value("createdTime", todo.getCreatedDate())
+                .value("name", todo.getName())
+                .value("description", todo.getDescription()))
+        ).catchError(error -> {
+            serviceMgmt.increment("add.todo.fail");
+            serviceMgmt.increment("add.todo.fail." +
+                    error.getClass().getName().toLowerCase());
+            recordCassandraError();
+        }).thenSafe(resultSet -> {
+            if (resultSet.wasApplied()) {
+                serviceMgmt.increment("add.todo.success");
+            } else {
+                serviceMgmt.increment("add.todo.fail.not.added");
+                throw new IllegalStateException("Unable to save data to todod table but no exceptions " +
+                        "reported from cassandra");
+            }
+        });
+
+        final Promise<ResultSet> saveToLookupTable = futureToPromise(
+                session.executeAsync(insertInto("TodoLookup")
+                        .value("id", todo.getId())
+                        .value("updatedTime", todo.getUpdatedTime()))
+        ).catchError(error -> {
+            serviceMgmt.increment("add.lookup.fail");
+            serviceMgmt.increment("add.lookup.fail." +
+                    error.getClass().getName().toLowerCase());
+            recordCassandraError();
+        }).thenSafe(resultSet -> {
+            if (resultSet.wasApplied()) {
+                serviceMgmt.increment("add.todo.success");
+            } else {
+                serviceMgmt.increment("add.todo.fail.not.added");
+                throw new IllegalStateException("Unable to save data to lookup table but no exceptions " +
+                        "reported from cassandra");
+            }
+        });
+
+        reactor
+                .all(Duration.ofSeconds(30),
+                        saveToTodoTablePromise, saveToLookupTable)
+                .catchError(returnPromise::reject)
+                .then( v-> returnPromise.resolve(true))
+                .invoke();
+
     }
 
     private void recordCassandraError() {
@@ -162,9 +202,10 @@ public class TodoRepoImpl implements TodoRepo {
     private Todo mapTodoFromRow(final Row row) {
         final String name = row.getString("name");
         final String description = row.getString("description");
-        final long createTime = row.getTimestamp("createTime").getTime();
+        final Date createdDate = row.getTimestamp("createdTime");
+        final long createTime = createdDate == null ? 0L : createdDate.getTime();
         final String id = row.getString("id");
-        return new Todo(name, description, createTime, id);
+        return new Todo(name, description, createTime, id,  row.getTimestamp("updatedTime").getTime());
     }
 
 
@@ -208,25 +249,34 @@ public class TodoRepoImpl implements TodoRepo {
         return Promises.invokablePromise(promise ->
                 new Thread(() -> {
                     runBuildDBIfNeededCQLScript(sessionToInitialize);
-                    sessionToInitialize.execute("USE todoKeyspace");
+                    sessionToInitialize.execute("USE todoKeyspace2");
                     promise.resolve(sessionToInitialize);
                 }).start());
     }
 
     private void runBuildDBIfNeededCQLScript(Session sessionToInitialize) {
-        final String todoTableAscending = String.format("\nCREATE KEYSPACE IF NOT EXISTS  todoKeyspace with REPLICATION = " +
+        final String todoTable = String.format("\nCREATE KEYSPACE IF NOT EXISTS  todoKeyspace2 with REPLICATION = " +
                 " { 'class' : 'SimpleStrategy', 'replication_factor' : %d };\n" +
-                "USE todoKeyspace;" +
+                "USE todoKeyspace2;" +
                 "CREATE TABLE IF NOT EXISTS Todo (\n" +
                 "                        id text,\n" +
                 "                        name text,\n" +
+                "                        version bigint,\n" +
                 "                        description text,\n" +
-                "                        createTime timestamp,\n" +
-                "                        primary key (id, createTime)\n" +
+                "                        updatedTime timestamp,\n" +
+                "                        createdTime timestamp,\n" +
+                "                        primary key (id, updatedTime)\n" +
                 "                    )\n" +
-                "                    WITH CLUSTERING ORDER BY ( createTime asc );", replicationFactor);
+                "                    WITH CLUSTERING ORDER BY ( updatedTime desc ); \n" +
+                "CREATE TABLE IF NOT EXISTS TodoLookup (\n" +
+                "                        id text,\n" +
+                "                        updatedTime timestamp,\n" +
+                "                        primary key (id, updatedTime)\n" +
+                "                    )\n" +
+                "                    WITH CLUSTERING ORDER BY ( updatedTime asc );", replicationFactor);
 
-        final String[] lines = todoTableAscending.split(";");
+
+        final String[] lines = todoTable.split(";");
 
         for (final String line : lines) {
             if (line.trim().isEmpty()) {
