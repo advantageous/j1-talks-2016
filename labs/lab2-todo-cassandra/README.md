@@ -946,6 +946,11 @@ private void doAddTodo(final Todo todo,
 }
 ```
 
+Notice we make two async calls to store Todo data into Cassandra
+- ```futureToPromise(session.executeAsync(```. The two async calls return
+promises. The all method takes a list or array of promises
+(`reactor.all(Duration.ofSeconds(30), promise1, promise2`).
+
 
 #### ACTION pull down the labs and the solutions into two separate directories.
 
@@ -959,8 +964,143 @@ $ git clone -b call-coordination https://github.com/advantageous/j1-talks-2016.g
 #### Modify <root>lab/lab2-todo-cassandra/src/main/java/io.advantageous.j1.reakt.repo/TodoRepoImpl
 
 Modify the file `TodoRepoImpl` and follow the instructions in the comments that
-say TODO. Then run
+say TODO.
 
 #### Validate using unit tests
 
-Run the unit tests from the IDE or use `gradle clean build` from the command line. 
+Run the unit tests from the IDE or use `gradle clean build` from the command line.
+
+
+Next we want to create a `loadTodo(id)` method that loads the latest `Todo` object,
+and if it does not have a `createdTime`, it uses another async method to load
+the first version of this `Todo` item.  The trick here is the results of first async
+call or the second async call may resolve the original call. This is call coordination.
+
+#### Call coordination find createdTime if not set.
+```java
+/**
+ * This always has to load a Todo with a createdTime.
+ * The Todo item might not exist so use Reakt Expected (which is like Java Optional).
+ * You are expecting this to return a Todo, but it might not.
+ */
+@Override
+public Promise<Expected<Todo>> loadTodo(final String id) {
+    logger.info("Load Todo called");
+    return invokablePromise(returnPromise -> sessionBreaker
+            .ifBroken(() -> {
+                final String message = "Not connected to cassandra while loading a todo item";
+                returnPromise.reject(message);
+                logger.error(message);
+                serviceMgmt.increment("cassandra.breaker.broken");
+            })
+            .ifOperational(session ->
+                    futureToPromise(
+                            //Cassandra query.
+                            session.executeAsync(select().all().from("Todo")
+                                    .where(eq("id", id))
+                                    .limit(1))
+                    ).catchError(error -> {
+                        //Failure.
+                        recordCassandraError("load.todo", error);
+                        returnPromise.reject("Problem loading Todos", error);
+                    }).thenSafe(resultSet -> {
+                        final Row row = resultSet.one();
+                        //Nothing found so send them an empty result.
+                        if (row == null) {
+                              returnPromise.resolve(Expected.empty());
+                        } else {
+                            final Todo todo = mapTodoFromRow(row);
+                      // The Todo has a created time, so send it back now.
+                            if (todo.getCreatedTime() != 0) {
+                                returnPromise.resolve(Expected.of(todo));
+                            } else {
+                      //We need to find the create time before we send it back.
+                      //Next time it is updated, it will have the created time.
+                                loadFirstTodoCreateTime(session, id)
+                                .thenSafe(createdTime -> {
+                                            returnPromise.resolve(
+                                            Expected.of(new Todo(todo,
+                                                     createdTime)));
+                                        })
+                                .catchError(error -> returnPromise.reject(
+                                        "Created time not found"))
+                                .invoke();
+                            }
+                        }
+                    }).invokeWithReactor(reactor)
+            )
+    );
+}
+
+private Promise<Long> loadFirstTodoCreateTime(final Session session,
+                                              final String id) {
+    return invokablePromise(returnPromise ->
+            futureToPromise(
+                    session.executeAsync(select().all().from("TodoLookup")
+                            .where(eq("id", id)).and(gte("updatedTime", 0L)).limit(1))
+            )
+            .catchError(error -> recordCassandraError("load.todo", error))
+            .thenSafe(resultSet -> {
+                        final Row row = resultSet.one();
+                        if (row == null) {
+                            returnPromise.resolve(-1L);
+                        } else {
+                            returnPromise.resolve((row.getTimestamp("updatedTime")
+                                            .getTime()));
+                        }
+                    }
+            ).invokeWithReactor(reactor));
+}
+
+```
+
+Next let's show a `any` example. Well in our contrived example someone started
+complaining that every now and then they are getting a timeout error in an
+upstream service. We decided we would like the data saved, but their is no use
+making the clients wait. We add a retry reconciliation queue based on Kafka and
+a process that can detect timeouts errors and run a reconciliation.
+
+Now we want to change our `addTodo` method to save the add Todo to Cassandra and
+send it to the retry reconciliation queue. We don't care which one happens first.
+But, we want at least the enqueue operation to work or the Cassandra update to
+work (in our contrived example).
+
+#### Example using any
+```java
+
+    private void doAddTodo(final Todo todo,
+                           final Promise<Boolean> returnPromise,
+                           final Session session) {
+
+        reactor.any(
+                messageQueue.sendToQueue(todo)
+                        .catchError(error -> logger.error("Send to queue failed", error))
+                        .thenSafe(enqueued -> logger.info("Sent to queue")),
+                reactor.all(
+
+                        //Call to save Todo item in two table, don't respond until both calls come back from Cassandra.
+                        // First call to cassandra.
+                        futureToPromise(
+                                session.executeAsync(...//
+                        ).catchError(error -> recordCassandraError(...))
+                         .thenSafe(resultSet ->handleResultFromAdd(...)),
+                        // Second call to cassandra.
+                        futureToPromise(
+                                session.executeAsync(...
+                        ).catchError(error -> recordCassandraError(...))
+                         .thenSafe(resultSet -> handleResultFromAdd(...))
+                )
+        ) .catchError(returnPromise::reject)
+          .then(v -> returnPromise.resolve(true))
+          .invoke();
+    }
+```
+
+Where `reactor.all()` will not trigger the final `returnPromise.resolve()` until all
+promises come back, the `reactor.any()` will trigger as soon as one async call
+comes back. Reactor all and any provide Timeouts just in case no calls come back,
+the client is not left hanging. You can use `any()` and `all()` without
+a reactor by using `Promises.any()` and `Promises.all()`. The reactor also
+forces the callbacks to happen on this actors thread.
+
+**** Action: Extra credit use MessageQueue with reactor.any in the doAddTodo method.

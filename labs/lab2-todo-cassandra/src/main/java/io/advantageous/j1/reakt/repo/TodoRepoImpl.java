@@ -4,6 +4,7 @@ import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Row;
 import com.datastax.driver.core.Session;
 import io.advantageous.discovery.DiscoveryService;
+import io.advantageous.j1.reakt.MessageQueue;
 import io.advantageous.j1.reakt.Todo;
 import io.advantageous.qbit.admin.ServiceManagementBundle;
 import io.advantageous.qbit.annotation.QueueCallback;
@@ -21,6 +22,7 @@ import java.time.Duration;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import static com.datastax.driver.core.Cluster.Builder;
@@ -41,6 +43,7 @@ public class TodoRepoImpl implements TodoRepo {
     private final AtomicLong cassandraErrors = new AtomicLong();
     private Breaker<Session> sessionBreaker = Breaker.opened();
     private int notConnectedCount;
+    private MessageQueue messageQueue = new MessageQueue();
 
     public TodoRepoImpl(final int replicationFactor,
                         final URI cassandraURI,
@@ -97,6 +100,7 @@ public class TodoRepoImpl implements TodoRepo {
 
     }
 
+
     /**
      * This always has to load a Todo with a created time.
      * The Todo item might not exist so use Reakt Expected (which is like Java Optional).
@@ -112,61 +116,59 @@ public class TodoRepoImpl implements TodoRepo {
                     logger.error(message);
                     serviceMgmt.increment("cassandra.breaker.broken");
                 })
-                .ifOperational(session -> {
-                            futureToPromise(
-                                    //Cassandra query.
-                                    session.executeAsync(select().all().from("Todo")
-                                            .where(eq("id", id))
-                                            .limit(1))
-                            ).catchError(error -> {
-                                //Failure.
-                                recordCassandraError("load.todo", error);
-                                returnPromise.reject("Problem loading Todos", error);
-                            }).thenSafe(resultSet -> {
-                                        final Row row = resultSet.one();
-                                        //Nothing found so send them an empty result.
-                                        if (row == null) {
-                                            returnPromise.resolve(Expected.empty());
+                .ifOperational(session ->
+                        futureToPromise(
+                                //Cassandra query.
+                                session.executeAsync(select().all().from("Todo")
+                                        .where(eq("id", id))
+                                        .limit(1))
+                        ).catchError(error -> {
+                            //Failure.
+                            recordCassandraError("load.todo", error);
+                            returnPromise.reject("Problem loading Todos", error);
+                        }).thenSafe(resultSet -> {
+                                    final Row row = resultSet.one();
+                                    //Nothing found so send them an empty result.
+                                    if (row == null) {
+                                        returnPromise.resolve(Expected.empty());
+                                    } else {
+                                        final Todo todo = mapTodoFromRow(row);
+                                        // The Todo has a created time, so send it back now.
+                                        if (todo.getCreatedTime() != 0) {
+                                            returnPromise.resolve(Expected.of(todo));
                                         } else {
-                                            final Todo todo = mapTodoFromRow(row);
-                                            // The Todo has a created time, so send it back now.
-                                            if (todo.getCreatedTime() != 0) {
-                                                returnPromise.resolve(Expected.of(todo));
-                                            } else {
-                                                //We need to find the create time before we send it back.
-                                                //Next time it is updated, it will have the created time.
-                                                loadFirstTodoCreateTime(session, id).thenSafe(createdTime -> {
-                                                    returnPromise.resolve(Expected.of(new Todo(todo, createdTime)));
-                                                }).catchError(error -> returnPromise.reject("Created time not found"))
-                                                        .invoke();
-                                            }
+                                            //We need to find the create time before we send it back.
+                                            //Next time it is updated, it will have the created time.
+                                            loadFirstTodoCreateTime(session, id).thenSafe(createdTime -> {
+                                                returnPromise.resolve(Expected.of(new Todo(todo, createdTime)));
+                                            }).catchError(error -> returnPromise.reject("Created time not found"))
+                                                    .invoke();
                                         }
                                     }
-                            ).invokeWithReactor(reactor);
-                        }
+                                }
+                        ).invokeWithReactor(reactor)
                 )
         );
     }
 
     private Promise<Long> loadFirstTodoCreateTime(final Session session,
                                                   final String id) {
-        return invokablePromise(returnPromise -> {
-
-            futureToPromise(
-                    session.executeAsync(select().all().from("TodoLookup")
-                            .where(eq("id", id)).and(gte("updatedTime", 0L)).limit(1))
-            ).catchError(error -> {
-                recordCassandraError("load.todo", error);
-            }).thenSafe(resultSet -> {
-                        final Row row = resultSet.one();
-                        if (row == null) {
-                            returnPromise.resolve(-1L);
-                        } else {
-                            returnPromise.resolve((row.getTimestamp("updatedTime").getTime()));
-                        }
-                    }
-            ).invokeWithReactor(reactor);
-        });
+        return invokablePromise(returnPromise ->
+                futureToPromise(
+                        session.executeAsync(select().all().from("TodoLookup")
+                                .where(eq("id", id)).and(gte("updatedTime", 0L)).limit(1))
+                )
+                        .catchError(error -> recordCassandraError("load.todo", error))
+                        .thenSafe(resultSet -> {
+                                    final Row row = resultSet.one();
+                                    if (row == null) {
+                                        returnPromise.resolve(-1L);
+                                    } else {
+                                        returnPromise.resolve((row.getTimestamp("updatedTime")
+                                                .getTime()));
+                                    }
+                                }
+                        ).invokeWithReactor(reactor));
 
     }
 
@@ -186,33 +188,68 @@ public class TodoRepoImpl implements TodoRepo {
         );
     }
 
+    // version w/o any example
+//    private void doAddTodo(final Todo todo,
+//                           final Promise<Boolean> returnPromise,
+//                           final Session session) {
+//
+//        reactor.all(Duration.ofSeconds(30),
+//                //Call to save Todo item in two table, don't respond until both calls come back from Cassandra.
+//                // First call to cassandra.
+//                futureToPromise(
+//                        session.executeAsync(insertInto("Todo")
+//                                .value("id", todo.getId())
+//                                .value("updatedTime", todo.getUpdatedTime())
+//                                .value("createdTime", todo.getCreatedTime())
+//                                .value("name", todo.getName())
+//                                .value("description", todo.getDescription()))
+//                ).catchError(error -> recordCassandraError("add.todo", error))
+//                        .thenSafe(resultSet -> handleResultFromAdd(resultSet, "add.todo")),
+//                // Second call to cassandra.
+//                futureToPromise(
+//                        session.executeAsync(insertInto("TodoLookup")
+//                                .value("id", todo.getId())
+//                                .value("updatedTime", todo.getUpdatedTime()))
+//                ).catchError(error -> recordCassandraError("add.lookup", error))
+//                        .thenSafe(resultSet -> handleResultFromAdd(resultSet, "add.lookup"))
+//        ).catchError(returnPromise::reject)
+//                .then(v -> returnPromise.resolve(true))
+//                .invoke();
+//
+//    }
+
+
     private void doAddTodo(final Todo todo,
                            final Promise<Boolean> returnPromise,
                            final Session session) {
 
+        reactor.any(
+                messageQueue.sendToQueue(todo)
+                        .catchError(error -> logger.error("Send to queue failed", error))
+                        .thenSafe(enqueued -> logger.info("Sent to queue")),
+                reactor.all(
 
-        reactor.all(Duration.ofSeconds(30),
-                //Call to save Todo item in two table, don't respond until both calls come back from Cassandra.
-                // First call to cassandra.
-                futureToPromise(
-                        session.executeAsync(insertInto("Todo")
-                                .value("id", todo.getId())
-                                .value("updatedTime", todo.getUpdatedTime())
-                                .value("createdTime", todo.getCreatedTime())
-                                .value("name", todo.getName())
-                                .value("description", todo.getDescription()))
-                ).catchError(error -> recordCassandraError("add.todo", error))
-                        .thenSafe(resultSet -> handleResultFromAdd(resultSet, "add.todo")),
-                // Second call to cassandra.
-                futureToPromise(
-                        session.executeAsync(insertInto("TodoLookup")
-                                .value("id", todo.getId())
-                                .value("updatedTime", todo.getUpdatedTime()))
-                ).catchError(error -> recordCassandraError("add.lookup", error))
-                        .thenSafe(resultSet -> handleResultFromAdd(resultSet, "add.lookup"))
+                        //Call to save Todo item in two table, don't respond until both calls come back from Cassandra.
+                        // First call to cassandra.
+                        futureToPromise(
+                                session.executeAsync(insertInto("Todo")
+                                        .value("id", todo.getId())
+                                        .value("updatedTime", todo.getUpdatedTime())
+                                        .value("createdTime", todo.getCreatedTime())
+                                        .value("name", todo.getName())
+                                        .value("description", todo.getDescription()))
+                        ).catchError(error -> recordCassandraError("add.todo", error))
+                                .thenSafe(resultSet -> handleResultFromAdd(resultSet, "add.todo")),
+                        // Second call to cassandra.
+                        futureToPromise(
+                                session.executeAsync(insertInto("TodoLookup")
+                                        .value("id", todo.getId())
+                                        .value("updatedTime", todo.getUpdatedTime()))
+                        ).catchError(error -> recordCassandraError("add.lookup", error))
+                                .thenSafe(resultSet -> handleResultFromAdd(resultSet, "add.lookup"))
+                )
         ).catchError(returnPromise::reject)
-                .then(v -> returnPromise.resolve(true))
-                .invoke();
+                .then(v -> returnPromise.resolve(true)).invoke();
 
     }
 
