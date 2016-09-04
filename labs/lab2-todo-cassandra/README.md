@@ -121,6 +121,15 @@ This will run the docker containers and then run the tests.
 
 This example works with *Cassandra*, *InfluxDB*, *Grafana*, and *StatsD*.
 
+#### Note: Working from home and not JavaOne?
+You can still grab the source code and follow along.
+```sh
+$ mkdir j1-reakt
+$ cd j1-reakt
+$ git clone -b lab-0 https://github.com/advantageous/j1-talks-2016.git lab
+$ git clone -b solution https://github.com/advantageous/j1-talks-2016.git solution
+```
+
 
 The `dockerTest` task if from a gradle plugin that starts up docker isntances for testing. You can annotate your unit tests so that they depend on docker containers like InfluxDB, StatsD, Cassandra etc. You can read more about this [gradle docker plugin here](https://github.com/advantageous/docker-test-plugin).
 
@@ -826,7 +835,7 @@ $ git clone -b breaker-lab https://github.com/advantageous/j1-talks-2016.git lab
 $ git clone -b circuit-breaker-connection-cleanup https://github.com/advantageous/j1-talks-2016.git solution
 ```
 
-#### Modify ~/breaker/src/main/java/io.advantageous.j1.reakt.repo/TodoRepoImpl
+#### Modify <root>/lab/lab2-todo-cassandra/src/main/java/io.advantageous.j1.reakt.repo/TodoRepoImpl
 
 Modify the file `TodoRepoImpl` and follow the instructions in the comments that
 say TODO.
@@ -834,3 +843,124 @@ say TODO.
 #### Validate using curl commands
 Run the app with gradle run and use the curl commands from earlier to test the application.
 Also run the unit test.
+
+
+## Step 9 Call coordination using all and nested promises
+
+Let's say Todo items can be edited and created by many users in a collaborative fashion at once, and Todo items
+can be pushed into this system through legacy integration.
+Don't put too much thought in the actual use case because this is all a contrived anyway.
+
+In this contrived example we want to update two tables during the `addTodo` operation,
+namely, `Todo` and `TodoLookup`.
+
+#### Update two tables
+```sql
+CREATE KEYSPACE IF NOT EXISTS  todoKeyspace2
+with REPLICATION =  { 'class' : 'SimpleStrategy', 'replication_factor' : 1 }
+
+USE todoKeyspace2
+CREATE TABLE IF NOT EXISTS Todo (
+                        id text,
+                        name text,
+                        version bigint,
+                        description text,
+                        updatedTime timestamp,
+                        createdTime timestamp,
+                        primary key (id, updatedTime)
+                    )
+                    WITH CLUSTERING ORDER BY ( updatedTime desc )
+
+CREATE TABLE IF NOT EXISTS TodoLookup (
+                        id text,
+                        updatedTime timestamp,
+                        primary key (id, updatedTime)
+                    )
+                    WITH CLUSTERING ORDER BY ( updatedTime asc )
+
+```
+`TodoLookup` stores the data by updatedTime time ascending so you can quickly look up
+a Todo item by its earliest date. The `Todo` table stores by descending updatedTime
+so you can quickly look up the last version of the Todo item.
+(Do not take this in any way shape or form as a best practices recommendation for using
+Cassandra.)
+
+Now we want to update both tables when we save a Todo item and we only want to
+`resolve` the `promise` to the `addTodo` when both table saves succeed.
+
+This is where an `all` promise comes in.
+
+Let's break the addTodo into two methods to make it easier to follow:
+
+#### addTodo that just delegates to doAddTodo
+```java
+@Override
+public Promise<Boolean> addTodo(final Todo todo) {
+    logger.info("Add Todo called");
+    return invokablePromise(promise -> sessionBreaker
+            .ifBroken(() -> {
+                final String message = "Not connected to cassandra while adding todo";
+                promise.reject(message);
+                logger.error(message);
+                serviceMgmt.increment("cassandra.breaker.broken");
+            })
+            .ifOperational(session ->
+                    doAddTodo(todo, promise, session)
+            )
+    );
+}
+```
+
+The `doAddTodo` uses the reactor to make two updates to the database as follows:
+
+#### Make to async updates to the database and don't resolve the promise until both come back
+```java
+private void doAddTodo(final Todo todo,
+                       final Promise<Boolean> returnPromise,
+                       final Session session) {
+
+
+    reactor.all(Duration.ofSeconds(30),
+            //Call to save Todo item in two table, don't respond until both calls come back from Cassandra.
+            // First call to cassandra.
+            futureToPromise(
+                    session.executeAsync(insertInto("Todo")
+                            .value("id", todo.getId())
+                            .value("updatedTime", todo.getUpdatedTime())
+                            .value("createdTime", todo.getCreatedTime())
+                            .value("name", todo.getName())
+                            .value("description", todo.getDescription()))
+            ).catchError(error -> recordCassandraError("add.todo", error))
+                    .thenSafe(resultSet -> handleResultFromAdd(resultSet, "add.todo")),
+            // Second call to cassandra.
+            futureToPromise(
+                    session.executeAsync(insertInto("TodoLookup")
+                            .value("id", todo.getId())
+                            .value("updatedTime", todo.getUpdatedTime()))
+            ).catchError(error -> recordCassandraError("add.lookup", error))
+                    .thenSafe(resultSet -> handleResultFromAdd(resultSet, "add.lookup"))
+    ).catchError(returnPromise::reject)
+            .then(v -> returnPromise.resolve(true))
+            .invoke();
+
+}
+```
+
+
+#### ACTION pull down the labs and the solutions into two separate directories.
+
+```sh
+$ mkdir call-coordination
+$ cd call-coordination
+$ git clone -b call-coordination-lab https://github.com/advantageous/j1-talks-2016.git lab
+$ git clone -b call-coordination https://github.com/advantageous/j1-talks-2016.git solution
+```
+
+#### Modify <root>lab/lab2-todo-cassandra/src/main/java/io.advantageous.j1.reakt.repo/TodoRepoImpl
+
+Modify the file `TodoRepoImpl` and follow the instructions in the comments that
+say TODO. Then run
+
+#### Validate using unit tests
+
+Run the unit tests from the IDE or use `gradle clean build` from the command line. 

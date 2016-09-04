@@ -4,6 +4,7 @@ import io.advantageous.config.Config;
 import io.advantageous.j1.reakt.ConfigUtils;
 import io.advantageous.j1.reakt.Todo;
 import io.advantageous.qbit.admin.ManagedServiceBuilder;
+import io.advantageous.reakt.Expected;
 import io.advantageous.reakt.promise.Promise;
 import io.advantageous.test.DockerTest;
 import org.junit.After;
@@ -13,6 +14,7 @@ import org.junit.experimental.categories.Category;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.function.Consumer;
 
 import static io.advantageous.j1.reakt.Main.createManagedServiceBuilder;
 import static io.advantageous.j1.reakt.Main.createTodoRepo;
@@ -42,17 +44,41 @@ public class TodoRepoTest {
 
     @Test
     public void addTodo() throws Exception {
-        final Promise<Boolean> promise = todoRepo.addTodo(new Todo("Rick", "Rick", 0L,"abc", System.currentTimeMillis()))
+        final Promise<Boolean> promise = todoRepo.addTodo(new Todo("Rick", "Rick", "abc", System.currentTimeMillis()))
                 .invokeAsBlockingPromise();
         assertTrue(promise.success());
         assertTrue(promise.get());
     }
 
+
+    @Test
+    public void loadATodo() throws Exception {
+        final String loadATodoTestId = "loadATodoTestId" + System.currentTimeMillis();
+        final Todo firstTodo = new Todo("Rick", "Rick", loadATodoTestId, System.currentTimeMillis());
+        todoRepo.addTodo(firstTodo)
+                .invokeAsBlockingPromise().get();
+
+        todoRepo.addTodo(new Todo("JasonD", "JasonD", loadATodoTestId, System.currentTimeMillis() + 100L ))
+                .invokeAsBlockingPromise().get();
+
+        final Promise<Expected<Todo>> expectedPromise = todoRepo.loadTodo(loadATodoTestId).invokeAsBlockingPromise();
+        expectedPromise.get();
+        assertTrue(expectedPromise.success());
+        assertTrue(expectedPromise.get().isPresent());
+
+        expectedPromise.get().ifPresent(todo -> {
+            assertEquals("JasonD", todo.getName());
+            assertEquals(firstTodo.getUpdatedTime(), todo.getCreatedTime());
+        });
+
+    }
+
+
     @Test
     public void loadTodos() throws Exception {
 
         for (int i = 1; i < 10; i++) {
-            todoRepo.addTodo(new Todo("Geoff"+i, "Geoff"+i, System.currentTimeMillis(), "xyz", System.currentTimeMillis()))
+            todoRepo.addTodo(new Todo("Geoff"+i, "Geoff"+i, "xyz", System.currentTimeMillis()))
                     .invokeAsBlockingPromise().get();
         }
 

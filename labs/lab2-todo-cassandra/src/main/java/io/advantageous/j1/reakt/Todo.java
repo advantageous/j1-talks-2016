@@ -5,15 +5,31 @@ public class Todo {
     private final String id;
     private final String name;
     private final String description;
-    private final long createdDate;
+    private final long createdTime;
     private final long updatedTime;
 
-    public Todo(String name, String description, long createTime, String id, long updatedTime) {
+    public Todo(String name, String description, long createdTime, String id, long updatedTime) {
         this.name = name;
         this.description = description;
-        this.createdDate = createTime;
+        this.createdTime = createdTime;
         this.id = id;
         this.updatedTime = updatedTime;
+    }
+
+    public Todo(String name, String description, String id, long updatedTime) {
+        this.name = name;
+        this.description = description;
+        this.createdTime = 0L;
+        this.id = id;
+        this.updatedTime = updatedTime;
+    }
+
+    public Todo(Todo todo, long createTime) {
+        this.name = todo.name;
+        this.description = todo.description;
+        this.createdTime = createTime;
+        this.id = todo.id;
+        this.updatedTime = todo.updatedTime;
     }
 
     public String getId() {
@@ -28,8 +44,8 @@ public class Todo {
         return description;
     }
 
-    public long getCreatedDate() {
-        return createdDate;
+    public long getCreatedTime() {
+        return createdTime;
     }
 
     public long getUpdatedTime() { return updatedTime; }
