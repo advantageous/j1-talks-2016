@@ -160,6 +160,29 @@ public class RecommendationService {
 ```java
 @Service
 public class RecommendationService {
+...
+
+    private Expected<User> getUser(final String userId) { return expectedNullable(users.get(userId); }
+...
+    private void addOutstandingCall(String userId, Promise<List<Recommendation>> returnPromise) {
+        expectedNullable(outstandingCallMap.get(userId))
+                .ifPresent(promises -> promises.add(returnPromise))
+                .ifAbsent(() -> {
+                    final List<Promise<List<Recommendation>>> list = new ArrayList<>();
+                    list.add(returnPromise);
+                    outstandingCallMap.put(userId, list);
+                });
+    }
+
+}
+
+```
+
+
+
+```java
+@Service
+public class RecommendationService {
 
     private final Map<String, User> users = ...;
     private final Map<String, List<Promise<List<Recommendation>>>> outstandingCalls = ...;
@@ -223,19 +246,5 @@ public class RecommendationService {
         });
     }
 
-
-    private Expected<User> getUser(final String userId) { return expectedNullable(users.get(userId); }
-...
-    private void addOutstandingCall(String userId, Promise<List<Recommendation>> returnPromise) {
-        expectedNullable(outstandingCallMap.get(userId))
-                .ifPresent(promises -> promises.add(returnPromise))
-                .ifAbsent(() -> {
-                    final List<Promise<List<Recommendation>>> list = new ArrayList<>();
-                    list.add(returnPromise);
-                    outstandingCallMap.put(userId, list);
-                });
-    }
-
-}
 
 ```
