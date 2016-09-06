@@ -13,14 +13,12 @@ import io.advantageous.reakt.examples.model.Subscription;
 import io.advantageous.reakt.examples.repository.SubscriptionRepository;
 import io.advantageous.reakt.examples.util.ConfigUtils;
 import io.advantageous.reakt.promise.Promise;
-import io.advantageous.reakt.promise.Promises;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.URI;
 import java.time.Duration;
 import java.util.*;
-import java.util.function.Function;
 
 import static io.advantageous.qbit.admin.ManagedServiceBuilder.managedServiceBuilder;
 import static io.advantageous.qbit.admin.ServiceManagementBundleBuilder.serviceManagementBundleBuilder;
@@ -31,8 +29,6 @@ import static io.advantageous.reakt.promise.Promises.*;
 
 @RequestMapping("/subscription-service")
 public class SubscriptionServiceImpl implements SubscriptionService {
-    private static final int PORT                 = 8082;
-    private static final String VERSION           = "/v1";
     private static final String PATH              = "/subscription";
     private static final String HEARTBEAT_KEY     = "i.am.alive";
     private static final String MGMT_CREATE_KEY   = "subscription.create.called";
@@ -40,7 +36,6 @@ public class SubscriptionServiceImpl implements SubscriptionService {
     private static final String MGMT_REMOVE_KEY   = "subscription.remove.called";
     private static final String MGMT_RETRIEVE_KEY = "subscription.retrieve.called";
     private static final String MGMT_LIST_KEY     = "subscription.list.called";
-    private static final String STATSD_ADDRESS    = "udp://192.168.99.100:8125";
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
     private final SubscriptionRepository repository;
@@ -62,7 +57,7 @@ public class SubscriptionServiceImpl implements SubscriptionService {
         return invokablePromise(promise -> {
             mgmt.increment(MGMT_CREATE_KEY);
 
-            Promise<String> stripePromise = StripeService.create(subscription)
+            Promise<String> stripePromise = ThirdPartySubscriptionService.create(subscription)
                     .then(stripeId -> {
                         logger.info("Stripe subscription created id="+stripeId);
                     })
@@ -107,7 +102,7 @@ public class SubscriptionServiceImpl implements SubscriptionService {
                     })
                     .invoke();
 
-            Promise<Boolean> stripePromise = StripeService.update(subscription)
+            Promise<Boolean> stripePromise = ThirdPartySubscriptionService.update(subscription)
                     .then(sub -> {
                         logger.info("Stripe subscription "+id+" updated");
                         promise.resolve(true);
@@ -139,7 +134,7 @@ public class SubscriptionServiceImpl implements SubscriptionService {
                     })
                     .invoke();
 
-            Promise<Boolean> stripePromise = StripeService.remove(id)
+            Promise<Boolean> stripePromise = ThirdPartySubscriptionService.remove(id)
                     .then(subscription -> {
                         logger.info("Stripe subscription "+id+" removed");
                         promise.resolve(true);
@@ -191,37 +186,5 @@ public class SubscriptionServiceImpl implements SubscriptionService {
                     })
                     .invoke();
         });
-    }
-
-    public static void main(final String... args) throws Exception {
-        final Config config = ConfigUtils.getConfig("subscription");
-
-        final ManagedServiceBuilder managedServiceBuilder = managedServiceBuilder()
-                .setRootURI(VERSION)
-                .setPort(PORT)
-                .enableStatsD(URI.create(STATSD_ADDRESS));
-
-        managedServiceBuilder.getContextMetaBuilder()
-                             .setTitle(SubscriptionServiceImpl.class.getSimpleName());
-
-        final ServiceManagementBundle serviceManagementBundle = serviceManagementBundleBuilder()
-                .setServiceName(SubscriptionServiceImpl.class.getSimpleName())
-                .setManagedServiceBuilder(managedServiceBuilder).build();
-
-        final SubscriptionRepository  subscriptionRepository =
-                new SubscriptionRepository(config.getInt("cassandra.replicationFactor"),
-                                           config.getUriList("cassandra.uris"));
-
-        final SubscriptionService subscriptionService =
-                new SubscriptionServiceImpl(serviceManagementBundle, subscriptionRepository);
-
-        managedServiceBuilder
-                .addEndpointServiceWithServiceManagmentBundle(subscriptionService, serviceManagementBundle)
-                .startApplication();
-
-        managedServiceBuilder.getAdminBuilder().build().startServer();
-
-        System.out.println("Subscription Server and Admin Server started");
-
     }
 }

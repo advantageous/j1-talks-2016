@@ -4,30 +4,40 @@ package io.advantageous.reakt.examples.model;
  * Created by jasondaniel on 8/22/16.
  */
 public class Entitlement {
-    private Asset asset;
-    private Subscription subscription;
+    private String assetId;
+    private String subscriptionId;
+    private long createTime;
 
     public Entitlement(){}
 
-    public Entitlement(Asset asset, Subscription subscription) {
-        this.asset = asset;
-        this.subscription = subscription;
+    public Entitlement(String assetId, String subscriptionId, long createTime) {
+        this.assetId = assetId;
+        this.subscriptionId = subscriptionId;
+        this.createTime = createTime;
     }
 
-    public Asset getAsset() {
-        return asset;
+    public String getAssetId() {
+        return assetId;
     }
 
-    public void setAsset(Asset asset) {
-        this.asset = asset;
+    public void setAssetId(String assetId) {
+        this.assetId = assetId;
     }
 
-    public Subscription getSubscription() {
-        return subscription;
+    public String getSubscriptionId() {
+        return subscriptionId;
     }
 
-    public void setSubscription(Subscription subscription) {
-        this.subscription = subscription;
+    public void setSubscriptionId(String subscriptionId) {
+        this.subscriptionId = subscriptionId;
+    }
+
+    public long getCreateTime() {
+        return createTime;
+    }
+
+    public void setCreateTime(long createTime) {
+        this.createTime = createTime;
     }
 
     @Override
@@ -37,15 +47,17 @@ public class Entitlement {
 
         Entitlement that = (Entitlement) o;
 
-        if (asset != null ? !asset.equals(that.asset) : that.asset != null) return false;
-        return subscription != null ? subscription.equals(that.subscription) : that.subscription == null;
+        if (createTime != that.createTime) return false;
+        if (assetId != null ? !assetId.equals(that.assetId) : that.assetId != null) return false;
+        return subscriptionId != null ? subscriptionId.equals(that.subscriptionId) : that.subscriptionId == null;
 
     }
 
     @Override
     public int hashCode() {
-        int result = asset != null ? asset.hashCode() : 0;
-        result = 31 * result + (subscription != null ? subscription.hashCode() : 0);
+        int result = assetId != null ? assetId.hashCode() : 0;
+        result = 31 * result + (subscriptionId != null ? subscriptionId.hashCode() : 0);
+        result = 31 * result + (int) (createTime ^ (createTime >>> 32));
         return result;
     }
 }

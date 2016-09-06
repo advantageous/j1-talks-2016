@@ -10,7 +10,7 @@ import static io.advantageous.reakt.promise.Promises.invokablePromise;
 /**
  * Created by jasondaniel on 8/22/16.
  */
-public class StripeService {
+public class ThirdPartySubscriptionService {
 
     public static Promise<String> create(Subscription subscription){
         //Call Stripe to create a subscription
