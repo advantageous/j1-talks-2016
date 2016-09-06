@@ -183,17 +183,9 @@ public class RecommendationService {
 ```java
 @Service
 public class RecommendationService {
-
-    private final Map<String, User> users = ...;
-    private final Map<String, List<Promise<List<Recommendation>>>> outstandingCalls = ...;
-    private final List<RecommendationService> engines = ...;
-    private final List<String> userIdsToLoad = ...;
-    private final UserStoreService userStoreService = ...;
-    private final Reactor reactor = ...;
-
+...
     @Init
     private void init() {
-
         initUserStream();
         //
         reactor.addRepeatingTask(Duration.ofMillis(50), () -> {
@@ -214,7 +206,6 @@ public class RecommendationService {
 
     //Work with user stream from service store
     private void initUserStream() {
-
         userStoreService.userStream(userList -> {
             if (userList.complete()) {
                 initUserStream();
@@ -245,6 +236,4 @@ public class RecommendationService {
                     });
         });
     }
-
-
 ```
