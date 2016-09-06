@@ -219,6 +219,14 @@ public class RecommendationService {
         });
     }
 
+```
+
+
+```java
+@Service
+public class RecommendationService {
+...
+   
     private void handleListOfUserFromStream(StreamResult<List<User>> userListResult) {
         userListResult.get().stream().forEach(user -> {
             users.put(user.getId(), user);
