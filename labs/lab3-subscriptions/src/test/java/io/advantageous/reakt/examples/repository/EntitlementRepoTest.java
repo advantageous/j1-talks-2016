@@ -1,7 +1,6 @@
-package io.advantageous.reakt.examples.service;
+package io.advantageous.reakt.examples.repository;
 
 import io.advantageous.reakt.examples.model.Entitlement;
-import io.advantageous.reakt.examples.repository.EntitlementRepository;
 import io.advantageous.reakt.examples.util.ConfigUtils;
 import io.advantageous.reakt.promise.Promise;
 import io.advantageous.test.DockerTest;

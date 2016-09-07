@@ -10,8 +10,6 @@ import java.net.URI;
 import java.util.*;
 
 import static io.advantageous.reakt.promise.Promises.invokablePromise;
-import static io.advantageous.reakt.promise.Promises.promise;
-import static java.util.Arrays.asList;
 
 /**
  * Created by jasondaniel on 8/22/16.

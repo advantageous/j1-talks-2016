@@ -1,7 +1,6 @@
-package io.advantageous.reakt.examples.service;
+package io.advantageous.reakt.examples.repository;
 
-import io.advantageous.reakt.examples.model.Asset;
-import io.advantageous.reakt.examples.repository.AssetRepository;
+import io.advantageous.reakt.examples.model.Subscription;
 import io.advantageous.reakt.examples.util.ConfigUtils;
 import io.advantageous.reakt.promise.Promise;
 import io.advantageous.test.DockerTest;
@@ -16,27 +15,26 @@ import java.util.UUID;
 import static org.junit.Assert.assertTrue;
 
 /**
- * Created by jasondaniel on 9/6/16.
+ * Created by jasondaniel on 8/24/16.
  */
-
 @Category(DockerTest.class)
-public class AssetRepoTest {
-
-    private AssetRepository repository;
-    private Asset asset;
+public class SubscriptionRepoTest {
+    private SubscriptionRepository repository;
+    private Subscription subscription;
 
     @Before
     public void before() throws Exception {
         String id = UUID.randomUUID().toString();
-        String name = "test asset";
+        String thirdPartyId = UUID.randomUUID().toString();
+        String name = "test subscription";
         long createTime = System.currentTimeMillis();
 
-        asset = new Asset(id, name, createTime);
+        subscription = new Subscription(id, name, thirdPartyId, createTime);
 
 
-        repository = new AssetRepository(1, ConfigUtils.getConfig("asset")
-                .getConfig("cassandra")
-                .getUriList("uris"));
+        repository = new SubscriptionRepository(1, ConfigUtils.getConfig("subscription")
+                                                              .getConfig("cassandra")
+                                                              .getUriList("uris"));
 
         repository.connect().invokeAsBlockingPromise().get();
         Thread.sleep(1000);
@@ -49,8 +47,8 @@ public class AssetRepoTest {
 
     @Test
     public void testStore() throws Exception {
-        final Promise<Boolean> promise = repository.store(asset)
-                .invokeAsBlockingPromise();
+        final Promise<Boolean> promise = repository.store(subscription)
+                                                   .invokeAsBlockingPromise();
 
         assertTrue(promise.success());
         assertTrue(promise.get());
@@ -58,12 +56,12 @@ public class AssetRepoTest {
 
     @Test
     public void testUpdate() throws Exception {
-        repository.store(asset)
-                .invokeAsBlockingPromise();
+        repository.store(subscription)
+                  .invokeAsBlockingPromise();
 
-        asset.setName("updated test asset");
+        subscription.setName("updated test subscription");
 
-        final Promise<Boolean> promise = repository.update(asset)
+        final Promise<Boolean> promise = repository.update(subscription)
                 .invokeAsBlockingPromise();
 
         assertTrue(promise.success());
@@ -72,7 +70,7 @@ public class AssetRepoTest {
 
     @Test
     public void testList() throws Exception {
-        final Promise<List<Asset>> promise = repository.list().invokeAsBlockingPromise();
+        final Promise<List<Subscription>> promise = repository.list().invokeAsBlockingPromise();
 
         assertTrue(promise.success());
         assertTrue(promise.get().size() > 0);
@@ -80,19 +78,20 @@ public class AssetRepoTest {
 
     @Test
     public void testFind() throws Exception {
-        String id = asset.getId();
+        String id = subscription.getId();
 
-        repository.store(asset).invokeAsBlockingPromise();
+        repository.store(subscription).invokeAsBlockingPromise();
 
-        final Promise<Asset> findPromise = repository.find(id).invokeAsBlockingPromise();
+        final Promise<Subscription> findPromise = repository.find(id).invokeAsBlockingPromise();
         assertTrue(findPromise.success());
         assertTrue(findPromise.get().getId().equals(id));
     }
 
     @Test
     public void testRemove() throws Exception {
-        String id = asset.getId();
-        repository.store(asset).invokeAsBlockingPromise();
+        String id = subscription.getId();
+
+        repository.store(subscription).invokeAsBlockingPromise();
 
         final Promise<Boolean> findPromise = repository.remove(id).invokeAsBlockingPromise();
 
