@@ -329,7 +329,7 @@ The `registerCallback` method is from the [Guava integration with Reakt](http://
 
 @RequestMapping("/subscription-service")
 public class SubscriptionServiceImpl implements SubscriptionService {
-    private static final String PATH              = "/subscription";
+    private static final String PATH = "/subscription";
     
     ...
 
@@ -437,7 +437,7 @@ The above should run the application and bind the service port to 8081 and the a
 #### ACTION Add a Subscription
 ```
  $ curl -X POST http://localhost:8082/v1/subscription-service/subscription \
-  -d '{"name":"test", "thirdPartyId" : "1234"}' -H "Content-type: application/json" | jq .
+  -d '{"name":"test", "thirdPartyId":"1234"}' -H "Content-type: application/json" | jq .
 ```
 
 The above uses curl to POST JSON Subscription to our example.
@@ -527,7 +527,7 @@ as follows:
 
 @RequestMapping("/subscription-service")
 public class SubscriptionServiceImpl implements SubscriptionService {
-    private static final String PATH              = "/subscription";
+    private static final String PATH = "/subscription";
     
     ...
 
@@ -564,7 +564,7 @@ $ gradle clean build run
 ### ACTION Hit it with rest a few times
 ```
  $ curl -X POST http://localhost:8082/v1/subscription-service/subscription \
-  -d '{"name":"test", "thirdPartyId" : "1234"}' -H "Content-type: application/json" | jq .
+  -d '{"name":"test", "thirdPartyId":"1234"}' -H "Content-type: application/json" | jq .
 
 ```
 
