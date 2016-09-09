@@ -223,11 +223,13 @@ public class TodoRepoImpl implements TodoRepo {
                            final Promise<Boolean> returnPromise,
                            final Session session) {
 
-        reactor.any(
+        //Send to the queue and two tables in Cassandra at the same time,
+        // wait until one of the succeed and then resolve the original call.
+        reactor.any(Duration.ofSeconds(30),
                 messageQueue.sendToQueue(todo)
                         .catchError(error -> logger.error("Send to queue failed", error))
                         .thenSafe(enqueued -> logger.info("Sent to queue")),
-                reactor.all(
+                reactor.all(Duration.ofSeconds(15),
 
                         //Call to save Todo item in two table, don't respond until both calls come back from Cassandra.
                         // First call to cassandra.
