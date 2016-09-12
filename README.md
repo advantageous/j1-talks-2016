@@ -24,7 +24,7 @@ Welcome to the JavaOne Talks 2016 for Reakt et al
 * Conference: [JavaOne](https://www.oracle.com/javaone/index.html)
 * Session Type: HOL (Hands-on Lab) Session
 * Session ID: [HOL5852](https://oracle.rainfocus.com/scripts/catalog/oow16.jsp?event=javaone&search=HOL5852&search.event=javaone)
-* Speakers: *Geoff Chandler*, *Jason Daniel*, and *Rick Hightower*  
+* Speakers: ***Geoff Chandler***, ***Jason Daniel***, and ***Rick Hightower***  
 * Room: Hilton—Franciscan Room C/D
 * Date and Time: 09/20/16, 04:00:00 PM - 06:00:00 PM 
 
