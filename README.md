@@ -8,7 +8,7 @@ Welcome to the JavaOne Talks 2016 for Reakt et al
 * Conference: [JavaOne](https://www.oracle.com/javaone/index.html)
 * Session Type: Conference Session
 * Session ID: [CON5797](https://oracle.rainfocus.com/scripts/catalog/oow16.jsp?event=javaone&search=CON5797&search.event=javaone)
-* Speakers: Jason Daniel and Rick Hightower
+* Speakers: ***Jason Daniel*** and ***Rick Hightower***
 * Room: Parc 55—Cyril Magnin I
 * Date and Time: 09/19/16, 12:30:00 PM - 01:30:00 PM 
 
@@ -16,7 +16,7 @@ Welcome to the JavaOne Talks 2016 for Reakt et al
 * Conference: [JavaOne](https://www.oracle.com/javaone/index.html) 
 * Session Type: Conference Session
 * Session ID: [CON5842](https://oracle.rainfocus.com/scripts/catalog/oow16.jsp?event=javaone&search=CON5842&search.event=javaone)
-* Speakers: Geoff Chandler and Rick Hightower
+* Speakers: ***Geoff Chandler*** and ***Rick Hightower***
 * Room: Hilton—Continental Ballroom 5
 * Date and Time: 09/19/16, 04:00:00 PM - 05:00:00 PM 
 
