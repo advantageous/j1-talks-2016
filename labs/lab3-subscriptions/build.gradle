@@ -27,6 +27,9 @@ repositories {
 
 dependencies {
 
+    //Kafka
+    compile group: 'org.apache.kafka', name: 'kafka_2.11', version: '0.8.2.2'
+
     // Config lib.
     compile 'io.advantageous.konf:konf:1.3.8'
 
@@ -97,5 +100,14 @@ testDockerContainers {
         portMapping container: 9042, host: 39042
         image "cassandra:2.2.5"
         waitAfterRun 30
+    }
+    d_kafka {
+        containerName "kafka_j1"
+        image "spotify/kafka"
+        portMapping(container: 2181, host: 2181)
+        portMapping(container: 9092, host: 9092)
+        env(name: "ADVERTISED_HOST", value: "192.168.99.100")
+        env(name: "ADVERTISED_PORT", value: "9092")
+        detach true
     }
 }
