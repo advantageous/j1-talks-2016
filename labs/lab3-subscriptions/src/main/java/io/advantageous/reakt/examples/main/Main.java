@@ -61,10 +61,14 @@ public class Main {
         final EntitlementService entitlementService =
                 new EntitlementServiceImpl(serviceManagementBundle, entitlementRepository);
 
+        final MessageService messageService =
+                new MessageServiceImpl(serviceManagementBundle);
+
         managedServiceBuilder
                 .addEndpointServiceWithServiceManagmentBundle(subscriptionService, serviceManagementBundle)
                 .addEndpointServiceWithServiceManagmentBundle(assetService, serviceManagementBundle)
                 .addEndpointServiceWithServiceManagmentBundle(entitlementService, serviceManagementBundle)
+                .addEndpointServiceWithServiceManagmentBundle(messageService, serviceManagementBundle)
                 .startApplication();
 
         managedServiceBuilder.getAdminBuilder().build().startServer();

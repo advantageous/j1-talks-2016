@@ -1,9 +1,11 @@
 package io.advantageous.reakt.examples.repository;
 
 import io.advantageous.reakt.Stream;
-import io.advantageous.reakt.examples.message.Consumer;
-import io.advantageous.reakt.examples.message.Producer;
+import io.advantageous.reakt.examples.messaging.Consumer;
+import io.advantageous.reakt.examples.messaging.Producer;
 import io.advantageous.reakt.examples.model.Asset;
+import io.advantageous.reakt.examples.model.Message;
+import io.advantageous.reakt.examples.util.ConfigUtils;
 import io.advantageous.test.DockerTest;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
@@ -14,9 +16,11 @@ import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.IntStream;
 
-import static io.advantageous.reakt.examples.message.MessagingProperties.*;
+import static io.advantageous.boon.json.JsonFactory.fromJson;
 import static org.junit.Assert.assertEquals;
+import static sun.plugin2.util.PojoUtil.toJson;
 
 /**
  * Created by jasondaniel on 9/12/16.
@@ -26,12 +30,22 @@ import static org.junit.Assert.assertEquals;
 public class EventStreamTest {
     private static Producer producer;
     private static Consumer consumer;
+    private static String topic;
 
 
     @BeforeClass
     public static void setUp(){
+        topic = ConfigUtils.getConfig("message")
+                           .getConfig("kafka")
+                           .getString("topic");
+
         producer = new Producer();
         consumer = new Consumer();
+
+        consumer.consume(topic, result -> {
+            Message message = fromJson(result.get(), Message.class);
+            System.out.println(message.getMessage());
+        }).invoke();
     }
 
     @AfterClass
@@ -42,25 +56,17 @@ public class EventStreamTest {
 
     @Test
     public void kafkaTest() throws InterruptedException {
-        consumer.consume(topic);
 
-        producer.send(topic, "new message", (m, e) -> {
-            long elapsedTime = System.currentTimeMillis();
-            if (m != null) {
-                System.out.println(
-                        "message sent to partition(" + m.partition() +
-                                "), " +
-                                "offset(" + m.offset() + ") in " + elapsedTime + " ms");
-            } else {
-                e.printStackTrace();
-            }
+        IntStream.range(0, 10).forEach(i -> {
+            String json = toJson(new Message("test message "+i));
+            producer.send("test-key", json).invoke();
         });
 
         Thread.sleep(3000);
     }
 
 
-   //@Test
+    //@Test
     public void testStream() throws Exception {
         TestStreamService testService = new TestStreamService();
 
