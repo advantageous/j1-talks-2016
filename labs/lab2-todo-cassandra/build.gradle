@@ -25,6 +25,7 @@ mainClassName = 'io.advantageous.j1.reakt.Main'
 repositories {
     mavenLocal()
     mavenCentral()
+    maven { url = 'https://oss.sonatype.org/content/repositories/releases/' }
 }
 
 
@@ -40,6 +41,7 @@ dependencies {
 
     compile 'io.advantageous.reakt:reakt-guava:3.0.0'
     compile 'io.advantageous.reakt:reakt-vertx:2.1.0.RELEASE'
+    compile 'io.advantageous.reakt.cassandra:reakt-cassandra:0.1.0'
 
     // Unit testing and Mock.
     testCompile 'junit:junit:4.11'
