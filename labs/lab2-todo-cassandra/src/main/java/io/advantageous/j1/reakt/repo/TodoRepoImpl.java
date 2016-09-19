@@ -58,10 +58,12 @@ public class TodoRepoImpl implements TodoRepo {
 
     @QueueCallback(QueueCallbackType.INIT)
     private void start() {
+
         reactor.runTaskAfter(Duration.ofSeconds(60), () -> {
             logger.info("Registering health check and recovery for repo");
             reactor.addRepeatingTask(Duration.ofSeconds(30), this::circuitBreakerTest);
         });
+
     }
 
     private void circuitBreakerTest() {
@@ -97,7 +99,6 @@ public class TodoRepoImpl implements TodoRepo {
                 notConnectedCount = 0;
             }).invokeWithReactor(reactor);
         });
-
     }
 
 
@@ -328,7 +329,7 @@ public class TodoRepoImpl implements TodoRepo {
                                         .thenSafe(session -> {
                                             cassandraErrors.set(0);
                                             sessionBreaker = Breaker.operational(session, 10, theSession ->
-                                                    !theSession.isClosed() && cassandraErrors.incrementAndGet() > 25
+                                                    !theSession.isClosed() && cassandraErrors.get() > 25
                                             );
                                             promise.resolve(true);
                                         })

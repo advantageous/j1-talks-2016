@@ -55,21 +55,19 @@ public class TodoRepoTest {
     public void loadATodo() throws Exception {
         final String loadATodoTestId = "loadATodoTestId" + System.currentTimeMillis();
         final Todo firstTodo = new Todo("Rick", "Rick", loadATodoTestId, System.currentTimeMillis());
-        todoRepo.addTodo(firstTodo)
-                .invokeAsBlockingPromise().get();
+        todoRepo.addTodo(firstTodo).blockingGet();
 
         todoRepo.addTodo(new Todo("JasonD", "JasonD", loadATodoTestId, System.currentTimeMillis() + 100L ))
-                .invokeAsBlockingPromise().get();
+                .blockingGet();
 
-        final Promise<Expected<Todo>> expectedPromise = todoRepo.loadTodo(loadATodoTestId).invokeAsBlockingPromise();
-        expectedPromise.get();
-        assertTrue(expectedPromise.success());
-        assertTrue(expectedPromise.get().isPresent());
+        final Expected<Todo> expectedTodo = todoRepo.loadTodo(loadATodoTestId).blockingGet(Duration.ofSeconds(30));
 
-        expectedPromise.get().ifPresent(todo -> {
+        assertTrue(expectedTodo.isPresent());
+
+        expectedTodo.ifPresent(todo -> {
             assertEquals("JasonD", todo.getName());
             assertEquals(firstTodo.getUpdatedTime(), todo.getCreatedTime());
-        });
+        }).ifAbsent(() -> { throw new IllegalStateException("FAIL"); });
 
     }
 
