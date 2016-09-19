@@ -19,8 +19,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.IntStream;
 
 import static io.advantageous.boon.json.JsonFactory.fromJson;
+import static io.advantageous.boon.json.JsonFactory.toJson;
 import static org.junit.Assert.assertEquals;
-import static sun.plugin2.util.PojoUtil.toJson;
 
 /**
  * Created by jasondaniel on 9/12/16.
