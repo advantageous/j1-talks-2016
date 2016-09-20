@@ -12,7 +12,7 @@ import static io.advantageous.reakt.promise.Promises.invokablePromise;
  */
 public class ThirdPartySubscriptionService {
 
-    public static Promise<String> create(Subscription subscription){
+    public Promise<String> create(Subscription subscription) {
         //Call Stripe to create a subscription
         return invokablePromise(promise ->
                 promise.resolve(UUID.randomUUID().toString())
@@ -21,14 +21,14 @@ public class ThirdPartySubscriptionService {
 
     }
 
-    public static Promise<Boolean> update(Subscription subscription){
+    public Promise<Boolean> update(Subscription subscription) {
         //Call Stripe to update a subscription
         return invokablePromise(promise ->
                 promise.resolve(true)
         );
     }
 
-    public static Promise<Boolean> remove(String id){
+    public Promise<Boolean> remove(String id) {
         //Call Stripe to remove a subscription
         return invokablePromise(promise ->
                 promise.resolve(true)
