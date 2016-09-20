@@ -36,19 +36,15 @@ public class Consumer {
     }
 
     public Promise<Boolean> consume(String topic, Stream<String> stream) {
-        return invokablePromise(promise -> {
-            KafkaStream<byte[], byte[]> kafkaStream =
-                    consumer.createMessageStreams(
-                            new HashMap<String, Integer>(){
-                                {
-                                    put(topic, 1);
-                                }
-                            }
-                    ).get(topic).get(0);
-
-            executor.submit(() -> kafkaStream.forEach(
-                    data -> stream.reply(new String(data.message()))));
-        });
+        // TODO finish this method
+        //         return invokablePromise(promise -> {
+        //
+        //  KafkaStream<byte[], byte[]> kafkaStream =
+        //        consumer createMessageStreams get(topic) get 0
+        //  executor.submit(() -> kafkaStream.forEach(
+        //  TODO use reakt stream and relay the message with reply()
+        //
+        return null;
     }
 
     public void shutdown() {

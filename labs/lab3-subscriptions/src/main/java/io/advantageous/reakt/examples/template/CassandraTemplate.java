@@ -46,22 +46,26 @@ public class CassandraTemplate<T> {
     }
 
     public void insert(Promise<Boolean> promise, Insert insert){
-        registerCallback(sessionRef.get().executeAsync(insert),
-                promise(ResultSet.class)
-                        .catchError(promise::reject)
-                        .then(resultSet -> promise.resolve(resultSet.wasApplied()))
-        );
+
+        // TODO finish the insert
+//        registerCallback(sessionRef.get().executeAsync(insert),
+//                promise(ResultSet.class)
+//                        .catchError(promise::reject)
+//                        .then(resultSet -> promise.resolve(resultSet.wasApplied()))
+//        );
     }
 
     public void list(Promise<List<T>> promise, Select.Where select, RowMapper<T> rowMapper){
-        registerCallback(sessionRef.get().executeAsync(select),
-                promise(ResultSet.class)
-                        .catchError(error -> promise.reject("Problem loading entities", error))
-                        .thenSafe(resultSet -> {
-                            final List<T> list = new ArrayList<>();
-                            resultSet.forEach(row -> list.add(rowMapper.map(row)));
-                            promise.resolve(list);
-                        }));
+
+        //TODO finish this method
+//        registerCallback(sessionRef.get().executeAsync(select),
+//                promise(ResultSet.class)
+//                        .catchError(error -> promise.reject("Problem loading entities", error))
+//                        .thenSafe(resultSet -> {
+//                            final List<T> list = new ArrayList<>();
+//                            resultSet.forEach(row -> list.add(rowMapper.map(row)));
+//                            promise.resolve(list);
+//                        }));
     }
 
    public void update(Promise<Boolean> promise, Update.Where update){
@@ -170,20 +174,25 @@ public class CassandraTemplate<T> {
 
     public void ifConnected(final String operation,
                              final Promise<?> promise, final Runnable runnable) {
-        // If we are not connected, try to connect, but fail this request.
-        if (!isConnected()) {
-            forceConnect();
-            //Promise rejected because we were not connected.
-            promise.reject("Not connected to cassandra for operation " + operation);
-        } else {
-            // Try running the operation
-            try {
-                runnable.run();
-            } catch (Exception ex) {
-                //Operation failed, exit
-                promise.reject("Error running " + operation, ex);
-            }
-        }
+        //TODO finish this
+//        // If we are not connected, try to connect, but fail this request.
+//        if (!isConnected()) {
+//            forceConnect();
+//            //Promise rejected because we were not connected.
+//            promise.reject("Not connected to cassandra for operation " + operation);
+//        } else {
+//            // Try running the operation
+//            try {
+//                runnable.run();
+//            } catch (Exception ex) {
+//                //Operation failed, exit
+//                promise.reject("Error running " + operation, ex);
+//            }
+//        }
+
+        // How does this compare with using a Breaker?
+        // Could you use the instructions and ideas from the Breaker lab with this?
+        // If so, what would you do?
     }
 
     private void forceConnect() {

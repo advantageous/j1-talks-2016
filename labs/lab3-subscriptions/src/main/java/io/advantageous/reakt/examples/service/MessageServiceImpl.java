@@ -53,12 +53,14 @@ public class MessageServiceImpl implements MessageService {
     @POST(value = PATH)
     public Promise<Boolean> publish(final Message message) {
         return invokablePromise(promise -> {
-            mgmt.increment(MGMT_PUBLISH_KEY);
-
-            producer.send("message-key", toJson(message))
-                    .then(promise::resolve)
-                    .catchError(promise::reject)
-                    .invoke();
+//       TODO send message to Kafka using our publisher
+//            mgmt.increment(MGMT_PUBLISH_KEY);
+//            producer send("message-key" // convert message to JSON toJson(message))
+                    //then(???)
+                    //catchError(???)
+                    //???invoke();
+            // What would you do differently if you wanted to track stats?
+            // How would you use the Reakt Reactor?
         });
     }
 

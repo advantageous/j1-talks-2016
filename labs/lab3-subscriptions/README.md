@@ -155,24 +155,37 @@ public class SubscriptionServiceImpl implements SubscriptionService {
     private static final String PATH = "/subscription";
     
     ...
-
     @Override
     @POST(value = PATH)
     public Promise<Boolean> create(final Subscription subscription) {
         return invokablePromise(promise -> {
             mgmt.increment(MGMT_CREATE_KEY);
-            
-            repository.store(subscription)
-                    .then(result -> {
-                        logger.info("subscription created id");
-                        promise.resolve(result);
+
+            ThirdPartySubscriptionService.create(subscription)
+                    .then(thirdPartyId -> {
+                        logger.info(" subscription created id="+thirdPartyId);
+
+
+                        subscription.setThirdPartyId(thirdPartyId);
+                        
+                        
+                        repository.store(subscription)
+                                .then(result -> {
+                                    logger.info("subscription created id");
+                                    promise.resolve(result);
+                                })
+                                .catchError(error -> {
+                                    logger.error("Unable to create subscription", error);
+                                    promise.reject("Unable to create subscription");
+                                })
+                                .invoke();
+                        
                     })
                     .catchError(error -> {
-                        logger.error("Unable to create subscription", error);
-                        promise.reject("Unable to create subscription");
-                    })
-                    .invoke();
-
+                        logger.error("Unable to create stripe subscription", error);
+                        promise.reject("Unable to create stripe subscription");
+                    }).invoke();
+            
         });
     }
 ```
@@ -207,7 +220,7 @@ public class SubscriptionRepoTest {
                                                               .getUriList("uris"));
 
         repository.connect().invokeAsBlockingPromise().get();
-        Thread.sleep(1000);
+        
     }
 
     @After
@@ -359,16 +372,7 @@ public class SubscriptionServiceImpl implements SubscriptionService {
     public Promise<Boolean> create(final Subscription subscription) {
         return invokablePromise(promise -> {
             mgmt.increment(MGMT_CREATE_KEY);
-            
-            repository.store(subscription)
-                    .then(result -> {
-                        logger.info("subscription created id");
-                        promise.resolve(result);
-                    })
-                    .catchError(error -> {
-                        logger.error("Unable to create subscription", error);
-                        promise.reject("Unable to create subscription");
-                    })
+            ...
                     .invokeWithReactor(mgmt.reactor()); //USE THE Reactor
 
         });
@@ -376,8 +380,17 @@ public class SubscriptionServiceImpl implements SubscriptionService {
 
 ```
 
+Track if the call to the repo was successful. 
+
+
+
 Notice that mgmt.increment is not a thread safe calls. It keeps a local cache of counts, timings and such.
 We call it from the same thread as the service actor by using the reactor (`.invokeWithReactor(mgmt.reactor())`).
+
+#### Action finish all of the TODO items in the SubscriptionServiceImpl
+
+Just open up the file. Reason on the TODOs and questions. There are some gems in there. 
+
 
 ### ACTION Run it
 ```

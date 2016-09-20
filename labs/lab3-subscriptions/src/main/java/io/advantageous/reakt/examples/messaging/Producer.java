@@ -63,19 +63,20 @@ public class Producer {
 
 
     public Promise<Boolean> send(String key, String message) {
-        return invokablePromise(promise ->
-                producer.send(new ProducerRecord<>(topic, key, message), (m, e) -> {
-                    if (m != null) {
-
-                        logger.info("message " + message + " sent to partition(" + m.partition() + "), " +
-                                "offset(" + m.offset() + ") at " + System.currentTimeMillis());
-
-                        promise.resolve(true);
-                    } else {
-                        promise.reject(e);
-                    }
-                }));
-
+        // TODO send key with message.
+        //        return invokablePromise(promise ->
+        //                producer.send(new ProducerRecord<>(topic, key, message), (m, e) -> {
+        //                    if (m != null) {
+        //
+        //                        logger.info("message " + message + " sent to partition(" + m.partition() + "), " +
+        //                                "offset(" + m.offset() + ") at " + System.currentTimeMillis());
+        //
+        //                        promise.resolve(true);
+        //                    } else {
+        //                        promise.reject(e);
+        //                    }
+        //                }));
+        return null;
     }
 
     private void config() {
