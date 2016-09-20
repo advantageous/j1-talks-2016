@@ -26,7 +26,6 @@ public class MessageServiceImpl implements MessageService {
     private static final String PATH              = "/message";
     private static final String HEARTBEAT_KEY     = "i.am.alive";
     private static final String MGMT_PUBLISH_KEY   = "message.publish.called";
-    private static final String MGMT_PUBLISH_COUNT_KEY   = "message.publish.count.called";
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
     private final ServiceManagementBundle mgmt;
@@ -63,45 +62,6 @@ public class MessageServiceImpl implements MessageService {
         });
     }
 
-    /*
-    @Override
-    public Promise<Boolean> publish(Message message, int count) {
-
-        return invokablePromise(promise -> {
-            mgmt.increment(MGMT_PUBLISH_KEY);
-
-            IntStream.range(0, count).forEach(f -> {
-                producer.send("message-key", toJson(message))
-                        .catchError(promise::reject)
-                        .invoke();
-            });
-
-            promise.resolve(true);
-        });
-
-        return null;
-    }
-
-    @Override
-    public Promise<String> publish(Message message, long intervalInMs) {
-        return null;
-    }
-
-    @Override
-    public Promise<Message> get(String messageId) {
-        return null;
-    }
-
-    @Override
-    public Promise<List<Message>> list() {
-        return null;
-    }
-
-    @Override
-    public Promise<Boolean> cancel(String messageId) {
-        return null;
-    }
-*/
     private void startConsumer(){
         consumer.consume(topic, result -> {
             Message message = fromJson(result.get(), Message.class);

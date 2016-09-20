@@ -11,17 +11,5 @@ import java.util.List;
 public interface MessageService {
 
     Promise<Boolean> publish(Message message);
-    /*
-
-    Promise<Boolean> publish(Message message, int count);
-
-    Promise<String> publish(Message message, long interval);
-
-    Promise<Message> get(String messageId);
-
-    Promise<List<Message>> list();
-
-    Promise<Boolean> cancel(String messageId);
-    */
 
 }

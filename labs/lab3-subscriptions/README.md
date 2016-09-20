@@ -343,7 +343,7 @@ A `Reactor` provides *replay promise*, which are promises whose handlers (callba
 To replay the handlers on this service actors thread (`SubscriptionServiceImpl`), we can use the `Promise.invokeWithReactor` method
 as follows:
 
-#### ACTION Edit src/main/java/io/advantageous/reakt/examples/ervice/SubscriptionServiceImpl.java
+#### ACTION Edit src/main/java/io/advantageous/reakt/examples/service/SubscriptionServiceImpl.java
 ```java
 
 ... 
@@ -395,3 +395,95 @@ Now go to [grafana](http://localhost:3003/dashboard/db/main?panelId=1&fullscreen
  at the metrics. (Note this is a local link so we are assuming you are running the examples).
  
  
+## Example using Kafka with Reakt (streams)
+ 
+We have this message service interface.
+
+```java
+public interface MessageService {
+
+    Promise<Boolean> publish(Message message);
+
+}
+
+```
+
+We want to provide an implementation that uses Kafka to send publish a message to a Kafka topic and then
+ consume that message and log the message. 
+ 
+The `MessageService` impl will use a `Producer` that uses an invokakable promise to call call the 
+Kafka producer API async, then uses the `promise.resolve` and `promise.reject` of the invokeable to 
+bridge from the async Kafka world to the Reakt world. 
+
+
+#### Using Kafka async lib with Reakt to publish a message
+```java
+    public Promise<Boolean> send(String key, String message) {
+        return invokablePromise(promise ->
+                producer.send(new ProducerRecord<>(topic, key, message), (m, e) -> {
+                    if (m != null) {
+
+                        logger.info("message " + message + " sent to partition(" + m.partition() + "), " +
+                                "offset(" + m.offset() + ") at " + System.currentTimeMillis());
+
+                        promise.resolve(true);
+                    } else {
+                        promise.reject(e);
+                    }
+                }));
+
+    }
+
+```
+
+Now we use a `Reakt` stream to subscribe to a Kafka message stream for a give topic.
+Again we use the `Reakt` labmda friendly `Stream` and adapt it to the `Kafka` stream.
+
+#### Using Kafka async lib with Reakt to consume a stream of messages
+
+```java
+    public Promise<Boolean> consume(String topic, Stream<String> stream) {
+        return invokablePromise(promise -> {
+            KafkaStream<byte[], byte[]> kafkaStream =
+                    consumer.createMessageStreams(
+                            new HashMap<String, Integer>(){
+                                {
+                                    put(topic, 1);
+                                }
+                            }
+                    ).get(topic).get(0);
+            executor.submit(() -> kafkaStream.forEach(
+                    data -> stream.reply(new String(data.message()))));
+        });
+    }
+    
+```    
+
+#### Action: Modify MessageServiceImpl (src/main/java/io/advantageous/reakt/examples/service/MessageServiceImpl.java)
+
+Just modify the file and follow the TODO instructions. 
+
+
+#### Action: Modify Consumer (src/main/java/io/advantageous/reakt/examples/messaging/Consumer.java)
+
+Just modify the file and follow the TODO instructions. 
+
+
+#### Action: Modify Producer (src/main/java/io/advantageous/reakt/examples/messaging/Producer.java)
+
+Just modify the file and follow the TODO instructions. 
+
+
+
+### ACTION Run it
+```
+$ gradle clean build run
+```
+
+### ACTION Hit it with rest a few times
+```
+ $ curl -X POST http://localhost:8082/v1/subscription-service/message \
+  -d '{"name":"test", "id":1234}' -H "Content-type: application/json" | jq .
+
+```
+
