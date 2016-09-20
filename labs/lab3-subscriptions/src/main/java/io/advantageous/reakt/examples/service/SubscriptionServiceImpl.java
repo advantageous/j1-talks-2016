@@ -51,27 +51,27 @@ public class SubscriptionServiceImpl implements SubscriptionService {
     @Override
     @POST(value = PATH)
     public Promise<Boolean> create(final Subscription subscription) {
-        return invokablePromise(promise -> {
+        return invokablePromise(returnPromise -> {
             mgmt.increment(MGMT_CREATE_KEY);
 
             thirdPartySubscriptionService.create(subscription)
-                    .then(stripeId -> {
-                        logger.info("Stripe subscription created id=" + stripeId);
-                        subscription.setThirdPartyId(stripeId);
+                    .then(thirdPartyId -> {
+                        logger.info("Subscription created id=" + thirdPartyId);
+                        subscription.setThirdPartyId(thirdPartyId);
                         repository.store(subscription)
                                 .then(result -> {
                                     logger.info("subscription created id");
-                                    promise.resolve(result);
+                                    returnPromise.resolve(result);
                                 })
                                 .catchError(error -> {
                                     logger.error("Unable to create subscription", error);
-                                    promise.reject("Unable to create subscription");
+                                    returnPromise.reject("Unable to create subscription");
                                 })
                                 .invoke();
                     })
                     .catchError(error -> {
                         logger.error("Unable to create stripe subscription", error);
-                        promise.reject("Unable to create stripe subscription");
+                        returnPromise.reject("Unable to create stripe subscription");
                     });
         });
     }
@@ -114,30 +114,30 @@ public class SubscriptionServiceImpl implements SubscriptionService {
     @Override
     @DELETE(value = PATH + "/{0}")
     public Promise<Boolean> remove(final @PathVariable String id) {
-        return invokablePromise(promise -> {
+        return invokablePromise(returnPromise -> {
             mgmt.increment(MGMT_REMOVE_KEY);
 
             Promise<Boolean> repoPromise = repository.remove(id)
                     .then(subscription -> {
                         logger.info("subscription " + id + " removed");
-                        promise.resolve(true);
                     })
                     .catchError(error -> {
                         logger.error("Unable to remove subscription with id=" + id, error);
-                        promise.reject("Unable to remove subscription with id=" + id);
                     });
 
             Promise<Boolean> subscriptionPromise = thirdPartySubscriptionService.remove(id)
                     .then(subscription -> {
                         logger.info("Stripe subscription " + id + " removed");
-                        promise.resolve(true);
                     })
                     .catchError(error -> {
                         logger.error("Unable to remove stripe subscription with id=" + id, error);
-                        promise.reject("Unable to remove stripe subscription with id=" + id);
                     });
 
-            all(repoPromise, subscriptionPromise);
+            all(repoPromise, subscriptionPromise)
+                    //Then resolve calling promise
+                    .then(v -> returnPromise.resolve(true))
+                    //Or resolve error by rejecting calling promise.
+                    .catchError(error -> returnPromise.reject("Unable to do update", error));
 
             repoPromise.invoke();
             subscriptionPromise.invoke();
